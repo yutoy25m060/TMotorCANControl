@@ -3,16 +3,16 @@ import numpy as np
 import time
 from TMotorCANControl.mit_can import TMotorManager_mit_can
 
-# CHANGE THESE TO MATCH YOUR DEVICE!
+# ご自身のデバイスに合わせてこれらの値を変更してください！
 Type = 'AK80-9'
 ID = 1
 
 def position_step(dev):
-    dev.set_zero_position() # has a delay!
+    dev.set_zero_position() # 遅延があります！
     time.sleep(1.5)
     dev.set_impedance_gains_real_unit(K=10,B=0.5)
     
-    print("Starting position step demo. Press ctrl+C to quit.")
+    print("位置ステップのデモを開始します。終了するには ctrl+C を押してください。")
 
     loop = SoftRealtimeLoop(dt = 0.01, report=True, fade=0)
     for t in loop:

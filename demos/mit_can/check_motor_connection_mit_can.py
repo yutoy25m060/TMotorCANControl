@@ -1,12 +1,12 @@
 from TMotorCANControl.mit_can import TMotorManager_mit_can
 
-# CHANGE THESE TO MATCH YOUR DEVICE!
+# ご自身のデバイスに合わせてこれらの値を変更してください！
 Type = 'AK80-9'
 ID = 1
 
 with TMotorManager_mit_can(motor_type=Type, motor_ID=ID) as dev:
     if dev.check_can_connection():
-        print("\nmotor is successfully connected!\n")
+        print("\nモーターは正常に接続されています！\n")
     else:
-        print("\nmotor not connected. Check dev power, network wiring, and CAN bus connection.\n")
+        print("\nモーターが接続されていません。デバイスの電源、ネットワーク配線、およびCANバスの接続を確認してください。\n")
     
