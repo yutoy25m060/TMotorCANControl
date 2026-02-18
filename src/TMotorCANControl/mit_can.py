@@ -129,6 +129,23 @@ MIT_Params = {
             'Kt_actual': 0.153, # UNTESTED CONSTANT!
             'GEAR_RATIO': 80.0,
             'Use_derived_torque_constants': False, # true if you have a better model
+        },
+        'AK45-36': {
+            'P_min' : -12.5,    # モーター位置（rad）マニュアルより
+            'P_max' : 12.5,     # モーター位置（rad）マニュアルより
+            'V_min' : -6.0,     # モーター速度（rad/s）マニュアルより
+            'V_max' : 6.0,      # モーター速度（rad/s）マニュアルより
+            'T_min' : -34.0,    # トルク制限値（Nm）マニュアルより
+            'T_max' : 34.0,     # トルク制限値（Nm）マニュアルより
+            'Kp_min': 0.0,      #マニュアルより
+            'Kp_max': 500.0,    #マニュアルより
+            'Kd_min': 0.0,      #マニュアルより
+            'Kd_max': 5.0,      #マニュアルより
+            'Kt_TMotor' : 0.091,      # 暫定（上位コンピュータのKp: 0.1206から推測可能）
+            'Current_Factor' : 0.59,   # ライブラリ共通定数
+            'Kt_actual': 0.115,       # 暫定
+            'GEAR_RATIO': 36.0,       # スクリーンショットより特定
+            'Use_derived_torque_constants': False
         }
 }
 """

@@ -68,6 +68,22 @@ Servo_Params = {
             'NUM_POLE_PAIRS': 21,
             'Use_derived_torque_constants': False, # true if you have a better model
         },
+        'AK45-36': {
+            'P_min' : -32000,           # 度単位での最小値
+            'P_max' : 32000,            # 度単位での最大値
+            'V_min' : -50000,           # 画像のERPM Limitsより
+            'V_max' : 50000,            # 画像のERPM Limitsより
+            'Curr_min' : -3500,         # 画像の35Aを基準に設定
+            'Curr_max' : 3500,          # 画像の35Aを基準に設定
+            'T_min' : -34.0,            # トルク制限値（Nm）マニュアルより
+            'T_max' : 34.0,             # トルク制限値（Nm）マニュアルより
+            'Kt_TMotor' : 0.091,        # 暫定値
+            'Current_Factor' : 0.59,     # 共通定数
+            'Kt_actual' : 0.115,        # 暫定値
+            'GEAR_RATIO' : 36.0,        # 画像のGear Divisionより
+            'NUM_POLE_PAIRS' : 14,      # 画像のRatより
+            'Use_derived_torque_constants': False, #
+        },
         'CAN_PACKET_ID':{
 
             'CAN_PACKET_SET_DUTY':0, #Motor runs in duty cycle mode
