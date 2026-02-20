@@ -586,6 +586,9 @@ class TMotorManager_servo_can():
     The user-facing class that manages the motor. This class should be
     used in the context of a with as block, in order to safely enter/exit
     control of the motor.
+    モーターを管理するユーザー向けクラス。
+    このクラスは、モーター制御を安全に開始/終了するために、
+    with as ブロックのコンテキスト内で使用する必要があります。
     """
     def __init__(self, motor_type='AK80-9', motor_ID=1, max_mosfett_temp = 50, CSV_file=None, log_vars = LOG_VARIABLES):
         """
@@ -607,6 +610,25 @@ class TMotorManager_servo_can():
                 - "motor_velocity"
                 - "motor_acceleration"
                 - "motor_torque"
+
+        モーターマネージャを設定します。この方法ではデバイスは電源が入らないことに注意してください！
+        モーターを制御する前に、主にwithブロックを使用して__enter__を呼び出す必要があります。
+
+        引数:
+        motor_type: 制御するモーターのタイプ（例: AK80-9）。
+        motor_ID: モーターのCAN ID。
+            max_mosfett_temp: エラーを発生させるMOSFETの閾値温度（摂氏）
+            CSV_file: ログ情報を出力するCSVファイル。Noneの場合、ログは記録されません。
+            log_vars: ログ記録対象変数（Pythonリスト形式）。可能な変数一覧：
+                - 「output_angle」
+                - 「output_velocity」
+                - 「出力加速度」
+                - 「電流」
+                - 「出力トルク」
+                - 「モーター角度」
+                - 「モーター速度」
+                - 「モーター加速度」
+                - 「モータートルク」
         """
         self.type = motor_type
         self.ID = motor_ID
@@ -653,7 +675,8 @@ class TMotorManager_servo_can():
         self.power_on() #TODO: How to control this?
         self._send_command()
         self._entered = True
-        if not self.check_can_connection():
+        # 制御を安全に開始するために使用されます。モーターの電源を入れ、ログファイルを開始します。
+        if not self.check_can_connection(): 
             raise RuntimeError("Device not connected: " + str(self.device_info_string()))
         return self
 
@@ -1038,23 +1061,38 @@ class TMotorManager_servo_can():
         """
         Checks the motor's connection by attempting to send 10 startup messages.
         If it gets 10 replies, then the connection is confirmed.
+        起動メッセージを 10 回送信してモーターの接続を確認します。
+        10 回の応答が返された場合、接続が確認されます。
 
         Returns:
             True if a connection is established and False otherwise.
+            接続が確立されている場合は True、それ以外の場合は False です。
         """
+        # 解説
+        # この関数は、モーターとの接続を確認するために使用されます。モーターに対して10回の起動メッセージを送信し、モーターからの応答が10回返されるかどうかを確認します。
+        # もし10回の応答が返された場合、接続が確立されていると判断し、Trueを返します。そうでない場合は、接続が確立されていないと判断し、Falseを返します。
+
+
+        # 各行コメント
+        # 最初に、モーター制御に入る前にこの関数が呼び出された場合、RuntimeErrorを発生させます。モーター制御に入るには、__enter__メソッドを使用するか、withブロック内でTMotorManagerをインスタンス化する必要があります。
         if not self._entered:
             raise RuntimeError("Tried to check_can_connection before entering motor control! Enter control using the __enter__ method, or instantiating the TMotorManager in a with block.")
+        # 次に、CANバスからの応答を受信するためのリスナーを作成します。can.BufferedReader()は、CANメッセージをバッファリングして読み取るためのリスナーです。
         Listener = can.BufferedReader()
+        # 次に、CANマネージャーの通知システムにリスナーを追加します。これにより、CANバスからのメッセージがListenerによって受信されるようになります。
         self._canman.notifier.add_listener(Listener)
+        # 次に、モーターに対して10回の起動メッセージを送信します。power_on()メソッドは、モーターに電源を入れるためのメッセージを送信します。各メッセージの後に0.001秒の遅延を入れています。
         for i in range(10):
             self.power_on()
             time.sleep(0.001)
+        # 次に、モーターからの応答を確認します。10回の応答が返されることを期待しています。もし10回の応答が返された場合、successをTrueに設定します。もし応答が返されない場合は、successをFalseに設定します。
         success = True
-        # time.sleep(0.1)
-        # for i in range(10):
-        #     if Listener.get_message(timeout=0.1) is None:
-        #         success = False
-        # self._canman.notifier.remove_listener(Listener)
+        time.sleep(0.1)
+        for i in range(10):
+            if Listener.get_message(timeout=0.1) is None:
+                success = False
+                # print("No response from motor for message " + str(i) + " of 10. Check connection and try again.")
+        self._canman.notifier.remove_listener(Listener)
         return success
 
     # controller variables
