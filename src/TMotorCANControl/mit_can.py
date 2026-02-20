@@ -131,20 +131,20 @@ MIT_Params = {
             'Use_derived_torque_constants': False, # true if you have a better model
         },
         'AK45-36': {
-            'P_min' : -12.5,    # モーター位置（rad）マニュアルより
-            'P_max' : 12.5,     # モーター位置（rad）マニュアルより
-            'V_min' : -6.0,     # モーター速度（rad/s）マニュアルより
-            'V_max' : 6.0,      # モーター速度（rad/s）マニュアルより
-            'T_min' : -34.0,    # トルク制限値（Nm）マニュアルより
-            'T_max' : 34.0,     # トルク制限値（Nm）マニュアルより
-            'Kp_min': 0.0,      #マニュアルより
-            'Kp_max': 500.0,    #マニュアルより
-            'Kd_min': 0.0,      #マニュアルより
-            'Kd_max': 5.0,      #マニュアルより
-            'Kt_TMotor' : 0.091,      # 暫定（上位コンピュータのKp: 0.1206から推測可能）
-            'Current_Factor' : 0.59,   # ライブラリ共通定数
-            'Kt_actual': 0.115,       # 暫定
-            'GEAR_RATIO': 36.0,       # スクリーンショットより特定
+            'P_min' : -12.5,        # MITプロトコル標準
+            'P_max' : 12.5,         # MITプロトコル標準
+            'V_min' : -30.0,        # 50000 ERPM / (14極対 * 36減速比) から算出される実用域
+            'V_max' : 30.0,
+            'T_min' : -32.0,        # 最大電流 35A 時の理論最大トルク付近
+            'T_max' : 32.0,
+            'Kp_min': 0.0,
+            'Kp_max': 500.0,
+            'Kd_min': 0.0,
+            'Kd_max': 5.0,
+            'Kt_TMotor' : 0.1206,   # foc_current_kp の値と一致
+            'Current_Factor' : 0.59, 
+            'Kt_actual': 0.1206,    # 実測パラメータがないためKp値を暫定採用
+            'GEAR_RATIO': 36.0,     # p_pid_ang_div より確定
             'Use_derived_torque_constants': False
         }
 }
