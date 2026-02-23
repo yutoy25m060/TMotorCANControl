@@ -2,9 +2,14 @@ from NeuroLocoMiddleware.SoftRealtimeLoop import SoftRealtimeLoop
 import time
 from TMotorCANControl.mit_can import TMotorManager_mit_can
 
+# 解説
+# これは、MIT CANモーターの電流ステップ応答を示すデモです。
+# モーターは最初にゼロ点に設定され、1秒後に0.5Aの電流ステップがq軸に加えられます。
+# デモは、モーターの電流をリアルタイムで表示し、ユーザーがctrl+Cを押すまで続きます。
+
 # ご自身のデバイスに合わせてこれらの値を変更してください！
-Type = 'AK80-9'
-ID = 1
+Type = 'AK45-36'  # モーターの種類
+ID = 2 # モーターのID
 
 def current_step(dev):
     dev.set_zero_position()

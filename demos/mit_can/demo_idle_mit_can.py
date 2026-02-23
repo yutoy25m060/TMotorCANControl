@@ -2,9 +2,14 @@ from NeuroLocoMiddleware.SoftRealtimeLoop import SoftRealtimeLoop
 import time
 from TMotorCANControl.mit_can import TMotorManager_mit_can
 
-# CHANGE THESE TO MATCH YOUR DEVICE!
-Type = 'AK45-36'
-ID = 2
+# 解説
+# これは、MIT CANモーターの読み取り専用デモです。
+# モーターは最初にゼロ点に設定され、1秒後からモーターの位置と速度をリアルタイムで表示します。
+# ユーザーがctrl+Cを押すまでデモは続きます。
+
+# ご自身のデバイスに合わせてこれらの値を変更してください！
+Type = 'AK45-36'  # モーターの種類
+ID = 2 # モーターのID
 
 
 if __name__ == '__main__':

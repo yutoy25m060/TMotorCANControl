@@ -3,12 +3,18 @@ import numpy as np
 import time
 from TMotorCANControl.mit_can import TMotorManager_mit_can
 
-# CHANGE THESE TO MATCH YOUR DEVICE!
-ID_1 = 1
-ID_2 = 2
+# 解説 
+# これは、MIT CANモーターの2自由度位置制御のデモです。
+# 2台のモーターが同時に制御され、両方とも最初にゼロ点に設定され、1秒後から、振幅π/2のステップ信号を追跡します。
+# 位置制御のゲインは、K=10、B=0.5に設定されています。これらの値は、モーターの特性や負荷に応じて調整する必要があるかもしれません。
+# デモは、モーターの位置をリアルタイムで更新し、ユーザーがctrl+Cを押すまで続きます。
 
-Type_1 = 'AK80-9'
-Type_2 = 'AK80-9'
+# ご自身のデバイスに合わせてこれらの値を変更してください！
+ID_1 = 1 # モーターのID
+ID_2 = 2 # モーターのID
+
+Type_1 = 'AK45-36'  # モーターの種類
+Type_2 = 'AK45-36'  # モーターの種類
 
 
 def two_DOF(dev1,dev2):

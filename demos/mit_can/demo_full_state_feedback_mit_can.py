@@ -4,9 +4,15 @@ import numpy as np
 import time
 from TMotorCANControl.mit_can import TMotorManager_mit_can
 
-# CHANGE THESE TO MATCH YOUR DEVICE!
-Type = 'AK80-9'
-ID = 1
+# 解説
+# これは、MIT CANモーターのフル状態フィードバック制御のデモです。
+# モーターは最初にゼロ点に設定され、1秒後から、振幅1.0のチャープ信号をトルク指令として追跡しながら、位置も0とπ/2の間でステップします。
+# 位置制御のゲインは、K=10、B=1に設定されています。これらの値は、モーターの特性や負荷に応じて調整する必要があるかもしれません。
+# デモは、モーターのトルクと位置をリアルタイムで更新し、ユーザーがctrl+Cを押すまで続きます。
+
+# ご自身のデバイスに合わせてこれらの値を変更してください！
+Type = 'AK45-36'  # モーターの種類
+ID = 2 # モーターのID
 
 def full_state_feedback(dev):
     dev.set_zero_position() # has a delay!

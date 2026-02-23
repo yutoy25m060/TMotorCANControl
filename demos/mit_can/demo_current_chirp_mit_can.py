@@ -2,9 +2,14 @@ from NeuroLocoMiddleware.SoftRealtimeLoop import SoftRealtimeLoop
 from NeuroLocoMiddleware.SysID import Chirp
 from TMotorCANControl.mit_can import TMotorManager_mit_can
 
-# CHANGE THESE TO MATCH YOUR DEVICE!
-Type = 'AK80-9'
-ID = 1
+# 解説
+# これは、MIT CANモーターの電流チャープデモです。
+# モーターは、1秒間で25Hzから250Hzまでの周波数で、振幅1.0のチャープ信号をトルク指令として追跡します。
+# デモは、モーターのトルクをリアルタイムで更新し、ユーザーがctrl+Cを押すまで続きます。
+
+# ご自身のデバイスに合わせてこれらの値を変更してください！
+Type = 'AK45-36'  # モーターの種類
+ID = 2 # モーターのID
 
 
 def chirp_demo(dev, amp=1.0, dt=0.001):

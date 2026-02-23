@@ -2,9 +2,15 @@ from NeuroLocoMiddleware.SoftRealtimeLoop import SoftRealtimeLoop
 import time
 from TMotorCANControl.mit_can import TMotorManager_mit_can
 
+# 解説
+# これは、MIT CANモーターの速度ステップ応答を示すデモです。
+# モーターは最初にゼロ点に設定され、1秒後に10 rad/sの速度ステップが加えられます。
+# 速度制御のゲインは、K=10、B=0.5に設定されています。これらの値は、モーターの特性や負荷に応じて調整する必要があるかもしれません。
+# デモは、モーターの位置と速度をリアルタイムで表示し、ユーザーがctrl+Cを押すまで続きます。
+
 # ご自身のデバイスに合わせてこれらの値を変更してください！
-Type = 'AK45-36'
-ID = 2
+Type = 'AK45-36'  # モーターの種類
+ID = 2 # モーターのID
 
 def speed_step(dev):
     dev.set_zero_position()
@@ -18,7 +24,7 @@ def speed_step(dev):
         if t < 1.0:
             dev.velocity = 0.0
         else:
-            dev.velocity = 1.0
+            dev.velocity = 10.0
             
     del loop
 

@@ -2,7 +2,7 @@ from TMotorCANControl.mit_can import TMotorManager_mit_can
 
 # ご自身のデバイスに合わせてこれらの値を変更してください！
 Type = 'AK45-36'  # モーターの種類
-ID = 2
+ID = 2 # モーターのID
 
 with TMotorManager_mit_can(motor_type=Type, motor_ID=ID) as dev:
     if dev.check_can_connection():

@@ -3,9 +3,15 @@ import numpy as np
 import time
 from TMotorCANControl.mit_can import TMotorManager_mit_can
 
+# 解説
+# これは、MIT CANモーターの位置ステップ応答を示すデモです。
+# モーターは最初にゼロ点に設定され、1秒後に90度（π/2ラジアン）に位置ステップされます。
+# 位置制御のゲインは、K=10、B=0.5に設定されています。これらの値は、モーターの特性や負荷に応じて調整する必要があるかもしれません。
+# デモは、モーターの位置と速度をリアルタイムで表示し、ユーザーがctrl+Cを押すまで続きます。
+
 # ご自身のデバイスに合わせてこれらの値を変更してください！
-Type = 'AK80-9'
-ID = 1
+Type = 'AK45-36'  # モーターの種類
+ID = 2 # モーターのID
 
 def position_step(dev):
     dev.set_zero_position() # 遅延があります！
