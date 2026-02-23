@@ -736,7 +736,7 @@ class TMotorManager_servo_can():
         # check that the motor data is recent
         now = time.time()
         if (now - self._last_command_time) < 0.25 and ( (now - self._last_update_time) > 0.1):
-            warnings.warn("State update requested but no data from motor. Delay longer after zeroing, decrease frequency, or check connection. " + self.device_info_string(), RuntimeWarning)
+            warnings.warn("状態の更新が要求されましたが、モーターからのデータがありません。ゼロ調整後の遅延時間を長くするか、周波数を下げるか、接続を確認してください。" + self.device_info_string(), RuntimeWarning)
         else:
             self._command_sent = False
 
@@ -1089,7 +1089,10 @@ class TMotorManager_servo_can():
         success = True
         time.sleep(0.1)
         for i in range(10):
-            if Listener.get_message(timeout=0.1) is None:
+            # print("Checking for response " + str(i) + " of 10 from motor " + self.device_info_string())
+            flag = Listener.get_message(timeout=0.1)
+            print(flag)
+            if flag is None or (flag.arbitration_id & 0xFF) != self.ID:
                 success = False
                 # print("No response from motor for message " + str(i) + " of 10. Check connection and try again.")
         self._canman.notifier.remove_listener(Listener)

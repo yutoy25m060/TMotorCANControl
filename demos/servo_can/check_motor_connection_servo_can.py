@@ -11,7 +11,7 @@ from TMotorCANControl.servo_can import TMotorManager_servo_can
 # モーターの機種名
 Type = 'AK45-36'
 # モーターのCAN ID
-ID = 1
+ID = 2
 
 # TMotorManager_servo_canを使用してモーターデバイスを初期化します。
 # 'with'ステートメントを使うことで、プログラム終了時に安全にモーターの電源がオフになります。
@@ -19,6 +19,7 @@ with TMotorManager_servo_can(motor_type=Type, motor_ID=ID) as dev:
     # check_can_connectionメソッドでモーターとのCAN通信が確立しているか確認します。
     if dev.check_can_connection():
         # 接続が確認できた場合のメッセージ
+        
         print("\nモーターは正常に接続されています！\n")
     else:
         # 接続が確認できなかった場合のメッセージ

@@ -3,8 +3,8 @@ import time
 from TMotorCANControl.mit_can import TMotorManager_mit_can
 
 # ご自身のデバイスに合わせてこれらの値を変更してください！
-Type = 'AK80-9'
-ID = 1
+Type = 'AK45-36'
+ID = 2
 
 def speed_step(dev):
     dev.set_zero_position()

@@ -560,7 +560,7 @@ class TMotorManager_mit_can():
     used in the context of a with as block, in order to safely enter/exit
     control of the motor.
     """
-    def __init__(self, motor_type='AK80-9', motor_ID=1, max_mosfett_temp=50, CSV_file=None, log_vars = LOG_VARIABLES):
+    def __init__(self, motor_type='AK80-9', motor_ID=1, max_mosfett_temp=80, CSV_file=None, log_vars = LOG_VARIABLES):
         """
         Sets up the motor manager. Note the device will not be powered on by this method! You must
         call __enter__, mostly commonly by using a with block, before attempting to control the motor.
@@ -718,7 +718,7 @@ class TMotorManager_mit_can():
         now = time.time()
         if (now - self._last_command_time) < 0.25 and ( (now - self._last_update_time) > 0.1):
             # print("State update requested but no data recieved from motor. Delay longer after zeroing, decrease frequency, or check connection.")
-            warnings.warn("State update requested but no data from motor. Delay longer after zeroing, decrease frequency, or check connection. " + self.device_info_string(), RuntimeWarning)
+            warnings.warn("状態の更新が要求されましたが、モーターからのデータがありません。ゼロ調整後の遅延時間を長くするか、周波数を下げるか、接続を確認してください。" + self.device_info_string(), RuntimeWarning)
         else:
             self._command_sent = False
 
@@ -1104,22 +1104,40 @@ class TMotorManager_mit_can():
         """
         Checks the motor's connection by attempting to send 10 startup messages.
         If it gets 10 replies, then the connection is confirmed.
+        起動メッセージを 10 回送信してモーターの接続を確認します。
+        10 回の応答が返された場合、接続が確認されます。
 
         Returns:
             True if a connection is established and False otherwise.
+            接続が確立されている場合は True、それ以外の場合は False です。
         """
+        # 解説
+        # この関数は、モーターとの接続を確認するために使用されます。モーターに対して10回の起動メッセージを送信し、モーターからの応答が10回返されるかどうかを確認します。
+        # もし10回の応答が返された場合、接続が確立されていると判断し、Trueを返します。そうでない場合は、接続が確立されていないと判断し、Falseを返します。
+
+
+        # 各行コメント
+        # 最初に、モーター制御に入る前にこの関数が呼び出された場合、RuntimeErrorを発生させます。モーター制御に入るには、__enter__メソッドを使用するか、withブロック内でTMotorManagerをインスタンス化する必要があります。
         if not self._entered:
             raise RuntimeError("Tried to check_can_connection before entering motor control! Enter control using the __enter__ method, or instantiating the TMotorManager in a with block.")
+        # 次に、CANバスからの応答を受信するためのリスナーを作成します。can.BufferedReader()は、CANメッセージをバッファリングして読み取るためのリスナーです。
         Listener = can.BufferedReader()
+        # 次に、CANマネージャーの通知システムにリスナーを追加します。これにより、CANバスからのメッセージがListenerによって受信されるようになります。
         self._canman.notifier.add_listener(Listener)
+        # 次に、モーターに対して10回の起動メッセージを送信します。power_on()メソッドは、モーターに電源を入れるためのメッセージを送信します。各メッセージの後に0.001秒の遅延を入れています。
         for i in range(10):
             self.power_on()
             time.sleep(0.001)
+        # 次に、モーターからの応答を確認します。10回の応答が返されることを期待しています。もし10回の応答が返された場合、successをTrueに設定します。もし応答が返されない場合は、successをFalseに設定します。
         success = True
         time.sleep(0.1)
         for i in range(10):
-            if Listener.get_message(timeout=0.1) is None:
+            # print("Checking for response " + str(i) + " of 10 from motor " + self.device_info_string())
+            flag = Listener.get_message(timeout=0.1)
+            # print(flag)
+            if flag is None or (flag.arbitration_id & 0xFF) != self.ID:
                 success = False
+                # print("No response from motor for message " + str(i) + " of 10. Check connection and try again.")
         self._canman.notifier.remove_listener(Listener)
         return success
 
