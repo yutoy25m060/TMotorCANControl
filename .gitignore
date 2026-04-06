@@ -1,0 +1,16 @@
+# Ignore Python bytecode files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ignore virtual environment directories
+venv/
+env/
+.venv/
+.virtualenv/
+
+# Ignore Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+demos_logs/
