@@ -24,7 +24,7 @@ def speed_step(dev):
         if t < 1.0:
             dev.velocity = 0.0
         else:
-            dev.velocity = 10.0
+            dev.velocity = 10.0 # 10 rad/sの速度ステップを加えます。必要に応じてこの値を調整してください。
             
     del loop
 

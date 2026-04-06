@@ -8,7 +8,6 @@ import os
 # これは、MIT CANモーターの2自由度位置制御のデモです。
 # 2台のモーターが同時に制御され、両方とも最初にゼロ点に設定され、1秒後から、振幅π/2のステップ信号を追跡します。
 # 位置制御のゲインは、K=10、B=0.5に設定されています。これらの値は、モーターの特性や負荷に応じて調整する必要があるかもしれません。
-# Kは位置制御のゲイン、Bは速度制御のゲインです。
 # デモは、モーターの位置をリアルタイムで更新し、ユーザーがctrl+Cを押すまで続きます。
 
 # 設定
@@ -23,42 +22,51 @@ SAVE_PATH = "./demos_logs"
 # ご自身のデバイスに合わせてこれらの値を変更してください！
 ID_1 = 1 # モーターのID
 ID_2 = 2 # モーターのID
+ID_3 = 3 # モーターのID
 
 Type_1 = 'AK45-36'  # モーターの種類
 Type_2 = 'AK45-36'  # モーターの種類
+Type_3 = 'AK45-36'  # モーターの種類
 
 log_filename1 = f"two_DOF_log_{Type_1}_ID{ID_1}_{int(time.time())}.csv"
 log_filename2 = f"two_DOF_log_{Type_2}_ID{ID_2}_{int(time.time())}.csv"
+log_filename3 = f"two_DOF_log_{Type_3}_ID{ID_3}_{int(time.time())}.csv"
 
 log_full_path1 = os.path.join(SAVE_PATH, log_filename1)
 log_full_path2 = os.path.join(SAVE_PATH, log_filename2)
+log_full_path3 = os.path.join(SAVE_PATH, log_filename3)
 
-print(f"ID:{ID_1}とID:{ID_2}のデータをログファイル {log_filename1} と {log_filename2} に記録します...")
-    
+print(f"ID:{ID_1}とID:{ID_2}とID:{ID_3}のデータをログファイル {log_filename1} と {log_filename2} と {log_filename3} に記録します...")
 
-def two_DOF(dev1,dev2):
+
+def three_DOF(dev1,dev2,dev3):
     dev1.set_zero_position()
     dev2.set_zero_position()
+    dev3.set_zero_position()
     time.sleep(1.5) # wait for the motors to zero (~1 second)
     dev1.set_impedance_gains_real_unit(K=10.0,B=0.5)
     dev2.set_impedance_gains_real_unit(K=10.0,B=0.5)
-    
-    print("Starting 2 DOF demo. Press ctrl+C to quit.")
+    dev3.set_impedance_gains_real_unit(K=10.0,B=0.5)
+
+    print("Starting 3 DOF demo. Press ctrl+C to quit.")
 
     loop = SoftRealtimeLoop(dt = 0.005, report=True, fade=0)
     for t in loop:
         dev1.update()
         dev2.update()
+        dev3.update()
         if t < 1.0:
             dev1.position = 0.0
             dev2.position = 0.0
+            dev3.position = 0.0
         else:
             dev1.position = 1.5*np.sin(np.pi*t) #degではなく、radで指定してください！
             dev2.position = 1.5*np.sin(np.pi*t) #degではなく、radで指定してください！
-
+            dev3.position = 1.5*np.sin(np.pi*t) #degではなく、radで指定してください！
 
             # dev1.position = (np.pi/2)*int(t)
             # dev2.position = (np.pi/2)*int(t)
+            # dev3.position = (np.pi/2)*int(t)
 
     del loop
 
@@ -67,4 +75,5 @@ if __name__ == '__main__':
     # remember to give each motor a different log name!
     with TMotorManager_mit_can(motor_type=Type_1, motor_ID=ID_1,CSV_file=log_full_path1) as dev1:
         with TMotorManager_mit_can(motor_type=Type_2, motor_ID=ID_2,CSV_file=log_full_path2) as dev2:
-            two_DOF(dev1,dev2)
+            with TMotorManager_mit_can(motor_type=Type_3, motor_ID=ID_3,CSV_file=log_full_path3) as dev3:
+                three_DOF(dev1,dev2,dev3)

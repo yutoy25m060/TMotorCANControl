@@ -24,7 +24,7 @@ def torque_step(dev):
         if t < 1.0:
             dev.torque = 0.0
         else:
-            dev.torque = 1.0
+            dev.torque = 1.0 # 1.0Nmのトルクステップを加えます。必要に応じてこの値を調整してください。
 
     del loop
 

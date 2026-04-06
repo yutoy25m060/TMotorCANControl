@@ -18,7 +18,7 @@ def full_state_feedback(dev):
     dev.set_zero_position() # has a delay!
     time.sleep(1.5)
     dev.set_impedance_gains_real_unit_full_state_feedback(K=10,B=1)
-    chirp = Chirp(250, 200, 0.5)
+    chirp = Chirp(250, 200, 0.5) # 250Hzから200Hzまでのチャープ信号を生成します。必要に応じてこの範囲を調整してください。
 
     print("Starting full state feedback demo. Press ctrl+C to quit.")
 
@@ -31,9 +31,10 @@ def full_state_feedback(dev):
             dev.torque = 0.0
             dev.position = 0.0
         else:
-            des_τ = loop.fade*amp*chirp.next(t)*3/3.7
-            dev.torque = des_τ
-            dev.position = (np.pi/2)*int(t)
+            # チャープ信号に基づいてトルク指令を生成します。必要に応じてこの式を調整してください。
+            des_τ = loop.fade*amp*chirp.next(t)*3/3.7 # 3.7はAK45-36の最大トルクです。必要に応じてこの値を変更してください。
+            dev.torque = des_τ # トルク指令をモーターに送ります。
+            dev.position = (np.pi/2)*int(t) # 位置を0とπ/2の間でステップさせます。必要に応じてこの式を調整してください。
 
     del loop
 
