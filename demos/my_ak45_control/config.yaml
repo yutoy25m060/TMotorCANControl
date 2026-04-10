@@ -1,0 +1,57 @@
+# TMotorCANControl 開発環境設定ファイル
+# AK45-36 モーター制御実験用
+
+# モーター設定
+motor:
+  type: "AK45-36"  # モーター型番
+  id: 1            # CAN ID
+  max_temp: 50     # 最大温度 [℃]
+
+# 制御パラメータ
+control:
+  # インピーダンス制御
+  impedance:
+    K: 10.0        # 剛性ゲイン [Nm/rad]
+    B: 0.5         # 減衰ゲイン [Nm/(rad/s)]
+
+  # 電流制御
+  current:
+    Kp: 0.1        # 比例ゲイン
+    Ki: 0.01       # 積分ゲイン
+
+# ログ設定
+logging:
+  vars: ["output_angle", "output_velocity", "output_torque", "mosfet_temperature"]  # ログ変数
+  rate: 100        # ログレート [Hz]
+
+# 実験パラメータ
+experiment:
+  # ステップ応答
+  step:
+    amplitude: 1.57  # 振幅 [rad] (90°)
+    duration: 5.0    # 持続時間 [秒]
+
+  # チャープ信号
+  chirp:
+    start_freq: 0.1  # 開始周波数 [Hz]
+    end_freq: 10.0   # 終了周波数 [Hz]
+    amplitude: 0.5   # 振幅 [rad]
+    duration: 30.0   # 持続時間 [秒]
+
+  # 軌跡追従
+  trajectory:
+    amplitude: 1.57  # 振幅 [rad] (90°)
+    period: 4.0      # 周期 [秒]
+    duration: 20.0   # 持続時間 [秒]
+
+# CAN 設定
+can:
+  interface: "can0"  # CAN インターフェース
+  bitrate: 1000000   # ビットレート [bps] (1Mbps)
+
+# 安全設定
+safety:
+  max_position: 3.14    # 最大位置 [rad] (180°)
+  max_velocity: 10.0    # 最大速度 [rad/s]
+  max_torque: 10.0      # 最大トルク [Nm]
+  emergency_stop: true  # 緊急停止有効

@@ -1,0 +1,28 @@
+# ログファイル
+*.csv
+
+# Python キャッシュ
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# 設定ファイルのバックアップ
+*.bak
+*~
+
+# OS 固有ファイル
+.DS_Store
+Thumbs.db
+
+# IDE 設定
+.vscode/
+.idea/
+
+# 一時ファイル
+*.tmp
+*.log
+
+# 実験結果のバックアップ（必要に応じてコメントアウト）
+# results/
+# plots/
