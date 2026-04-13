@@ -13,18 +13,18 @@ import os
 from collections import namedtuple
 from math import isfinite
 
-# Parameter dictionary for each specific motor that can be controlled with this library
-# Thresholds are in the datasheet for the motor on cubemars.com
+# このライブラリで制御可能な各モーター固有のパラメータ辞書
+# 閾値は cubemars.com のモーターデータシートに基づいています
 
 MIT_Params = {
     "ERROR_CODES": {
-        0: "No Error",
-        1: "Over temperature fault",
-        2: "Over current fault",
-        3: "Over voltage fault",
-        4: "Under voltage fault",
-        5: "Encoder fault",
-        6: "Phase current unbalance fault (The hardware may be damaged)",
+        0: "エラーなし",
+        1: "過温度故障",
+        2: "過電流故障",
+        3: "過電圧故障",
+        4: "低電圧故障",
+        5: "エンコーダー故障",
+        6: "相電流不平衡故障（ハードウェアが損傷している可能性があります）",
     },
     "AK80-9": {
         "P_min": -12.5,
@@ -38,7 +38,7 @@ MIT_Params = {
         "Kd_min": 0.0,
         "Kd_max": 5.0,
         "Kt_TMotor": 0.091,  # from TMotor website (actually 1/Kvll)
-        "Current_Factor": 0.59,  # to correct the qaxis current
+        "Current_Factor": 0.59,  # q軸電流を補正するため
         "Kt_actual": 0.115,  # Need to use the right constant -- 0.115 by our calcs, 0.091 by theirs. At output leads to 1.31 by them and 1.42 by us.
         "GEAR_RATIO": 9.0,  # hence the 9 in the name
         "Use_derived_torque_constants": True,  # true if you have a better model
@@ -57,8 +57,8 @@ MIT_Params = {
         "Kd_min": 0.0,
         "Kd_max": 5.0,
         "Kt_TMotor": 0.16,  # from TMotor website (actually 1/Kvll)
-        "Current_Factor": 0.59,  # UNTESTED CONSTANT!
-        "Kt_actual": 0.206,  # UNTESTED CONSTANT!
+        "Current_Factor": 0.59,  # 未テスト定数！
+        "Kt_actual": 0.206,  # 未テスト定数！
         "GEAR_RATIO": 9.0,
         "Use_derived_torque_constants": False,  # true if you have a better model
     },
@@ -74,8 +74,8 @@ MIT_Params = {
         "Kd_min": 0.0,
         "Kd_max": 5.0,
         "Kt_TMotor": 0.068,  # from TMotor website (actually 1/Kvll)
-        "Current_Factor": 0.59,  # # UNTESTED CONSTANT!
-        "Kt_actual": 0.087,  # UNTESTED CONSTANT!
+        "Current_Factor": 0.59,  # 未テスト定数！
+        "Kt_actual": 0.087,  # 未テスト定数！
         "GEAR_RATIO": 6.0,
         "Use_derived_torque_constants": False,  # true if you have a better model
     },
@@ -91,8 +91,8 @@ MIT_Params = {
         "Kd_min": 0.0,
         "Kd_max": 5.0,
         "Kt_TMotor": 0.095,  # from TMotor website (actually 1/Kvll)
-        "Current_Factor": 0.59,  # # UNTESTED CONSTANT!
-        "Kt_actual": 0.122,  # UNTESTED CONSTANT!
+        "Current_Factor": 0.59,  # 未テスト定数！
+        "Kt_actual": 0.122,  # 未テスト定数！
         "GEAR_RATIO": 10.0,
         "Use_derived_torque_constants": False,  # true if you have a better model
     },
@@ -108,8 +108,8 @@ MIT_Params = {
         "Kd_min": 0.0,
         "Kd_max": 5.0,
         "Kt_TMotor": 0.091,  # from TMotor website (actually 1/Kvll)
-        "Current_Factor": 0.59,  # # UNTESTED CONSTANT!
-        "Kt_actual": 0.017,  # UNTESTED CONSTANT!
+        "Current_Factor": 0.59,  # 未テスト定数！
+        "Kt_actual": 0.017,  # 未テスト定数！
         "GEAR_RATIO": 6.0,
         "Use_derived_torque_constants": False,  # true if you have a better model
     },
@@ -125,8 +125,8 @@ MIT_Params = {
         "Kd_min": 0.0,
         "Kd_max": 5.0,
         "Kt_TMotor": 0.119,  # from TMotor website (actually 1/Kvll)
-        "Current_Factor": 0.59,  # # UNTESTED CONSTANT!
-        "Kt_actual": 0.153,  # UNTESTED CONSTANT!
+        "Current_Factor": 0.59,  # 未テスト定数！
+        "Kt_actual": 0.153,  # 未テスト定数！
         "GEAR_RATIO": 80.0,
         "Use_derived_torque_constants": False,  # true if you have a better model
     },
@@ -149,57 +149,56 @@ MIT_Params = {
     },
 }
 """
-A Dictionary containing the parameters of each type of motor, as well as the error
-code definitions for the AK-series TMotor actuators.
-You could use an optional torque model that accounts for friction losses if one is available.
-So far, such a model is only available for the AK80-9.
+AKシリーズ TMotor アクチュエータの各タイプのモーターのパラメータとエラーコード定義を含む辞書。
+利用可能であれば、摩擦損失を考慮したオプションのトルクモデルを使用できます。
+現時点では、このようなモデルは AK80-9 でのみ利用可能です。
 
-This model comes from a linear regression with the following constants:
-    - a_hat[0] = bias
-    - a_hat[1] = standard torque constant multiplier
-    - a_hat[2] = nonlinear torque constant multiplier
-    - a_hat[3] = coloumb friction
-    - a_hat[4] = gearbox friction
+このモデルは以下の定数を持つ線形回帰から得られます：
+    - a_hat[0] = バイアス
+    - a_hat[1] = 標準トルク定数乗数
+    - a_hat[2] = 非線形トルク定数乗数
+    - a_hat[3] = クーロン摩擦
+    - a_hat[4] = ギアボックス摩擦
 
-The model has the form:
+モデルは以下の形式を持ちます：
 τ = a_hat[0] + gr*(a_hat[1]*kt - a_hat[2]*abs(i))*i - (v/(ϵ + np.abs(v)) )*(a_hat[3] + a_hat[4]*np.abs(i))
 
-with the following values:
-    - τ = approximated torque
-    - gr = gear ratio
-    - kt = nominal torque constant
-    - i = current
-    - v = velocity
-    - ϵ = signum velocity threshold
+以下の値を使用：
+    - τ = 近似トルク
+    - gr = ギア比
+    - kt = 公称トルク定数
+    - i = 電流
+    - v = 速度
+    - ϵ = 符号速度閾値
 """
 
 
 class motor_state:
-    """Data structure to store and update motor states"""
+    """モーター状態を保存・更新するためのデータ構造"""
 
     def __init__(self, position, velocity, current, temperature, error, acceleration):
         """
-        Sets the motor state to the input.
+        モーター状態を入力値に設定します。
 
         Args:
-            position: Position in rad
-            velocity: Velocity in rad/s
-            current: current in amps
-            temperature: temperature in degrees C
-            error: error code, 0 means no error
+            position: 位置 [rad]
+            velocity: 速度 [rad/s]
+            current: 電流 [A]
+            temperature: 温度 [℃]
+            error: エラーコード、0 はエラーなしを意味します
         """
         self.set_state(position, velocity, current, temperature, error, acceleration)
 
     def set_state(self, position, velocity, current, temperature, error, acceleration):
         """
-        Sets the motor state to the input.
+        モーター状態を入力値に設定します。
 
         Args:
-            position: Position in rad
-            velocity: Velocity in rad/s
-            current: current in amps
-            temperature: temperature in degrees C
-            error: error code, 0 means no error
+            position: 位置 [rad]
+            velocity: 速度 [rad/s]
+            current: 電流 [A]
+            temperature: 温度 [℃]
+            error: エラーコード、0 はエラーなしを意味します
         """
         self.position = position
         self.velocity = velocity
@@ -210,10 +209,10 @@ class motor_state:
 
     def set_state_obj(self, other_motor_state):
         """
-        Sets this motor state object's values to those of another motor state object.
+        このモーター状態オブジェクトの値を別のモーター状態オブジェクトの値に設定します。
 
         Args:
-            other_motor_state: The other motor state object with values to set this motor state object's values to.
+            other_motor_state: このモーター状態オブジェクトの値を設定する値を持つ別のモーター状態オブジェクト。
         """
         self.position = other_motor_state.position
         self.velocity = other_motor_state.velocity
@@ -223,20 +222,20 @@ class motor_state:
         self.acceleration = other_motor_state.acceleration
 
 
-# Data structure to store MIT_command that will be sent upon update
+# update 時に送信される MIT_command を保存するためのデータ構造
 class MIT_command:
-    """Data structure to store MIT_command that will be sent upon update"""
+    """update 時に送信される MIT_command を保存するためのデータ構造"""
 
     def __init__(self, position, velocity, kp, kd, current):
         """
-        Sets the motor state to the input.
+        コマンドを入力値に設定します。
 
         Args:
-            position: Position in rad
-            velocity: Velocity in rad/s
-            kp: Position gain
-            kd: Velocity gain
-            current: Current in amps
+            position: 位置 [rad]
+            velocity: 速度 [rad/s]
+            kp: 位置ゲイン
+            kd: 速度ゲイン
+            current: 電流 [A]
         """
         self.position = position
         self.velocity = velocity
@@ -245,7 +244,7 @@ class MIT_command:
         self.current = current
 
 
-# motor state from the controller, uneditable named tuple
+# コントローラーからのモーター状態、編集不可の名前付きタプル
 MIT_motor_state = namedtuple("motor_state", "position velocity current temperature error")
 """
 Motor state from the controller, uneditable named tuple
@@ -253,16 +252,20 @@ Motor state from the controller, uneditable named tuple
 
 
 # python-can listener object, with handler to be called upon reception of a message on the CAN bus
+# CANバスでメッセージが受信されたときに呼び出されるハンドラーを持つpython-canリスナーオブジェクト
 class motorListener(can.Listener):
-    """Python-can listener object, with handler to be called upon reception of a message on the CAN bus"""
+    """
+    Python-can listener object, with handler to be called upon reception of a message on the CAN bus
+        CANバスでメッセージが受信されたときに呼び出されるハンドラーを持つpython-canリスナーオブジェクト
+    """
 
     def __init__(self, canman, motor):
         """
-        Sets stores can manager and motor object references
+        CANマネージャーとモーターオブジェクトの参照を保存します。
 
         Args:
-            canman: The CanManager object to get messages from
-            motor: The TMotorCANManager object to update
+            canman: メッセージを取得する CanManager オブジェクト
+            motor: 更新する TMotorCANManager オブジェクト
         """
         self.canman = canman
         self.bus = canman.bus
@@ -270,10 +273,10 @@ class motorListener(can.Listener):
 
     def on_message_received(self, msg):
         """
-        Updates this listener's motor with the info contained in msg, if that message was for this motor.
+        このリスナーのモーターを、メッセージがこのモーター向けの場合、msg に含まれる情報で更新します。
 
-        args:
-            msg: A python-can CAN message
+        Args:
+            msg: python-can の CAN メッセージ
         """
         data = bytes(msg.data)
         ID = data[0]
@@ -282,8 +285,11 @@ class motorListener(can.Listener):
 
 
 # A class to manage the low level CAN communication protocols
+# CAN通信プロトコルの低レベルを管理するクラス
 class CAN_Manager(object):
-    """A class to manage the low level CAN communication protocols"""
+    """A class to manage the low level CAN communication protocols
+    CAN通信プロトコルの低レベルを管理するクラス
+    """
 
     debug = False
     """
@@ -325,7 +331,9 @@ class CAN_Manager(object):
     def __del__(self):
         """
         # shut down the CAN bus when the object is deleted
+            CANバスをシャットダウンするため、オブジェクトが削除されたとき
         # This may not ever get called, so keep a reference and explicitly delete if this is important.
+            #これは呼び出されない可能性があるため、これが重要な場合は参照を保持し、明示的に削除してください。
         """
         os.system("sudo /sbin/ip link set can0 down")
 
@@ -333,6 +341,7 @@ class CAN_Manager(object):
     def add_motor(self, motor):
         """
         Subscribe a motor object to the CAN bus to be updated upon message reception
+            CANバスでメッセージが受信されたときに更新されるモーターオブジェクトをサブスクライブします
 
         Args:
             motor: The TMotorManager object to be subscribed to the notifier
@@ -340,15 +349,16 @@ class CAN_Manager(object):
         self.notifier.add_listener(motorListener(self, motor))
 
     # Locks value between min and max
+    # 最小値と最大値の間で値をロック
     @staticmethod
     def limit_value(value, min, max):
         """
-        Limits value to be between min and max
+        値を最小値と最大値の間に制限します。
 
         Args:
-            value: The value to be limited.
-            min: The lowest number allowed (inclusive) for value
-            max: The highest number allowed (inclusive) for value
+            value: 制限される値。
+            min: 値に許可される最小値（含む）。
+            max: 値に許可される最大値（含む）。
         """
         if value >= max:
             return max
@@ -362,14 +372,14 @@ class CAN_Manager(object):
     @staticmethod
     def float_to_uint(x, x_min, x_max, num_bits):
         """
-        Interpolates a floating point number to an unsigned integer of num_bits length.
-        A number of x_max will be the largest integer of num_bits, and x_min would be 0.
+        浮動小数点数を num_bits 長の符号なし整数に補間します。
+        x_max の数は num_bits の最大整数になり、x_min は 0 になります。
 
-        args:
-            x: The floating point number to convert
-            x_min: The minimum value for the floating point number
-            x_max: The maximum value for the floating point number
-            num_bits: The number of bits for the unsigned integer
+        Args:
+            x: 変換する浮動小数点数
+            x_min: 浮動小数点数の最小値
+            x_max: 浮動小数点数の最大値
+            num_bits: 符号なし整数のビット数
         """
         span = x_max - x_min
         bitratio = float((1 << num_bits) / span)
@@ -382,13 +392,13 @@ class CAN_Manager(object):
     @staticmethod
     def uint_to_float(x, x_min, x_max, num_bits):
         """
-        Interpolates an unsigned integer of num_bits length to a floating point number between x_min and x_max.
+        num_bits 長の符号なし整数を x_min と x_max の間の浮動小数点数に補間します。
 
-        args:
-            x: The floating point number to convert
-            x_min: The minimum value for the floating point number
-            x_max: The maximum value for the floating point number
-            num_bits: The number of bits for the unsigned integer
+        Args:
+            x: 変換する符号なし整数
+            x_min: 浮動小数点数の最小値
+            x_max: 浮動小数点数の最大値
+            num_bits: 符号なし整数のビット数
         """
         span = x_max - x_min
         # (x*span/(2^num_bits -1)) + x_min
@@ -397,11 +407,11 @@ class CAN_Manager(object):
     # sends a message to the motor (when the motor is in MIT mode)
     def send_MIT_message(self, motor_id, data):
         """
-        Sends an MIT Mode message to the motor, with a header of motor_id and data array of data
+        モーターに MIT モードメッセージを送信します。ヘッダーに motor_id とデータ配列 data を使用します。
 
         Args:
-            motor_id: The CAN ID of the motor to send to.
-            data: An array of integers or bytes of data to send.
+            motor_id: 送信するモーターの CAN ID。
+            data: 送信する整数またはバイトのデータ配列。
         """
         DLC = len(data)
         assert DLC <= 8, "Data too long in message for motor " + str(motor_id)
@@ -421,30 +431,30 @@ class CAN_Manager(object):
     # send the power on code
     def power_on(self, motor_id):
         """
-        Sends the power on code to motor_id.
+        motor_id に電源オンコードを送信します。
 
         Args:
-            motor_id: The CAN ID of the motor to send the message to.
+            motor_id: メッセージを送信するモーターの CAN ID。
         """
         self.send_MIT_message(motor_id, [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFC])
 
     # send the power off code
     def power_off(self, motor_id):
         """
-        Sends the power off code to motor_id.
+        motor_id に電源オフコードを送信します。
 
         Args:
-            motor_id: The CAN ID of the motor to send the message to.
+            motor_id: メッセージを送信するモーターの CAN ID。
         """
         self.send_MIT_message(motor_id, [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFD])
 
-    # send the zeroing code. Like a scale, it takes about a second to zero the position
+    # ゼロ化コードを送信。スケールのように、位置をゼロにするのに約1秒かかります
     def zero(self, motor_id):
         """
-        Sends the zeroing code to motor_id. This code will shut off communication with the motor for about a second.
+        motor_id にゼロ化コードを送信します。このコードはモーターとの通信を約1秒間停止します。
 
         Args:
-            motor_id: The CAN ID of the motor to send the message to.
+            motor_id: メッセージを送信するモーターの CAN ID。
         """
         self.send_MIT_message(motor_id, [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFE])
 
@@ -452,19 +462,18 @@ class CAN_Manager(object):
     # basically an impedance controller
     def MIT_controller(self, motor_id, motor_type, position, velocity, Kp, Kd, I):
         """
-        Sends an MIT style control signal to the motor. This signal will be used to generate a
-        current for the field-oriented controller on the motor control chip, given by this expression:
+        モーターに MIT スタイルの制御信号を送信します。この信号は、モーター制御チップ上のフィールド指向コントローラー用の電流を生成するために使用され、次の式で与えられます：
 
             q_control = Kp*(position - current_position) + Kd*(velocity - current_velocity) + I
 
         Args:
-            motor_id: The CAN ID of the motor to send the message to
-            motor_type: A string noting the type of motor, ie 'AK80-9'
-            position: The desired position in rad
-            velocity: The desired velocity in rad/s
-            Kp: The position gain
-            Kd: The velocity gain
-            I: The additional current
+            motor_id: メッセージを送信するモーターの CAN ID
+            motor_type: モーターの種類を示す文字列、例 'AK80-9'
+            position: 希望する位置 [rad]
+            velocity: 希望する速度 [rad/s]
+            Kp: 位置ゲイン
+            Kd: 速度ゲイン
+            I: 追加電流
         """
         position_uint16 = CAN_Manager.float_to_uint(
             position, MIT_Params[motor_type]["P_min"], MIT_Params[motor_type]["P_max"], 16
@@ -492,20 +501,17 @@ class CAN_Manager(object):
     # convert data recieved from motor in byte format back into floating point numbers in real units
     def parse_MIT_message(self, data, motor_type):
         """
-        Takes a RAW MIT message and formats it into readable floating point numbers.
+        RAW MIT メッセージを受け取り、読み取り可能な浮動小数点数にフォーマットします。
 
         Args:
-            data: the bytes of data from a python-can message object to be parsed
-            motor_type: A string noting the type of motor, ie 'AK80-9'
+            data: 解析する python-can メッセージオブジェクトのデータバイト
+            motor_type: モーターの種類を示す文字列、例 'AK80-9'
 
         Returns:
-            An MIT_Motor_State namedtuple that contains floating point values for the
-            position, velocity, current, temperature, and error in rad, rad/s, amps, and *C.
-            0 means no error.
+            位置、速度、電流、温度、エラーを rad、rad/s、A、℃ で含む浮動小数点値を持つ MIT_Motor_State 名前付きタプル。
+            0 はエラーなしを意味します。
 
-            Notably, the current is converted to amps from the reported
-            'torque' value, which is i*Kt. This allows control based on actual q-axis current,
-            rather than estimated torque, which doesn't account for friction losses.
+            注目すべきことに、電流は報告された 'トルク' 値から A に変換され、これは i*Kt です。これにより、摩擦損失を考慮しない推定トルクではなく、実際の q 軸電流に基づく制御が可能になります。
         """
         assert len(data) == 8 or len(data) == 6, "Tried to parse a CAN message that was not Motor State in MIT Mode"
         temp = None
@@ -538,14 +544,14 @@ class CAN_Manager(object):
         return MIT_motor_state(position, velocity, current, temp, error)
 
 
-# defualt variables to be logged
+# デフォルトでログに記録される変数
 LOG_VARIABLES = ["output_angle", "output_velocity", "output_acceleration", "current", "output_torque"]
 
 
-# possible states for the controller
+# コントローラーの可能な状態
 class _TMotorManState(Enum):
     """
-    An Enum to keep track of different control states
+    異なる制御状態を追跡するための Enum
     """
 
     IDLE = 0
@@ -558,22 +564,19 @@ class _TMotorManState(Enum):
 # the user-facing class that manages the motor.
 class TMotorManager_mit_can:
     """
-    The user-facing class that manages the motor. This class should be
-    used in the context of a with as block, in order to safely enter/exit
-    control of the motor.
+    モーターを管理するユーザー向けクラス。このクラスは、モーターの制御を安全に開始/終了するために、with as ブロック内で使用する必要があります。
     """
 
     def __init__(self, motor_type="AK80-9", motor_ID=1, max_mosfett_temp=80, CSV_file=None, log_vars=LOG_VARIABLES):
         """
-        Sets up the motor manager. Note the device will not be powered on by this method! You must
-        call __enter__, mostly commonly by using a with block, before attempting to control the motor.
+        モーターマネージャーをセットアップします。このメソッドではデバイスが電源オンになりません！モーターの制御を試みる前に、__enter__ を呼び出す必要があります。通常は with ブロックを使用してください。
 
         Args:
-            motor_type: The type of motor being controlled, ie AK80-9.
-            motor_ID: The CAN ID of the motor.
-            max_mosfett_temp: temperature of the mosfett above which to throw an error, in Celsius
-            CSV_file: A CSV file to output log info to. If None, no log will be recorded.
-            log_vars: The variables to log as a python list. The full list of possibilities is
+            motor_type: 制御するモーターの種類、例 AK80-9。
+            motor_ID: モーターの CAN ID。
+            max_mosfett_temp: エラーをスローする MOSFET 温度の上限（摂氏度）。
+            CSV_file: ログ情報を出力する CSV ファイル。None の場合、ログは記録されません。
+            log_vars: ログする変数の Python リスト。可能な完全なリストは以下の通りです:
                 - "output_angle"
                 - "output_velocity"
                 - "output_acceleration"
@@ -587,7 +590,7 @@ class TMotorManager_mit_can:
         self.type = motor_type
         self.ID = motor_ID
         self.csv_file_name = CSV_file
-        print("Initializing device: " + self.device_info_string())
+        print("デバイスを初期化: " + self.device_info_string())
 
         self._motor_state = motor_state(0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
         self._motor_state_async = motor_state(0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
@@ -636,9 +639,9 @@ class TMotorManager_mit_can:
 
     def __enter__(self):
         """
-        Used to safely power the motor on and begin the log file (if specified).
+        モーターを安全に電源オンし、ログファイル（指定されている場合）を開始するために使用されます。
         """
-        print("Turning on control for device: " + self.device_info_string())
+        print("デバイス制御を開始: " + self.device_info_string())
         if self.csv_file_name is not None:
             with open(self.csv_file_name, "w") as fd:
                 writer = csv.writer(fd)
@@ -655,9 +658,9 @@ class TMotorManager_mit_can:
 
     def __exit__(self, etype, value, tb):
         """
-        Used to safely power the motor off and close the log file (if specified).
+        モーターを安全に電源オフし、ログファイル（指定されている場合）を閉じるために使用されます。
         """
-        print("Turning off control for device: " + self.device_info_string())
+        print("デバイス制御を終了: " + self.device_info_string())
         self.power_off()
 
         if self.csv_file_name is not None:
@@ -668,7 +671,7 @@ class TMotorManager_mit_can:
 
     def TMotor_current_to_qaxis_current(self, iTM):
         """
-        Try to convert TMotor reported torque to q-axis current
+        TMotor が報告するトルクを q 軸電流に変換しようとする。
         """
         return (
             MIT_Params[self.type]["Current_Factor"]
@@ -678,7 +681,7 @@ class TMotorManager_mit_can:
 
     def qaxis_current_to_TMotor_current(self, iq):
         """
-        Try to convert q-axis current to TMotor reported torque
+        q 軸電流を TMotor が報告するトルクに変換しようとする。
         """
         return (
             iq
@@ -690,17 +693,13 @@ class TMotorManager_mit_can:
     # 最新の状態情報を保存する
     def _update_state_async(self, MIT_state):
         """
-        This method is called by the handler every time a message is recieved on the bus
-        from this motor, to store the most recent state information for later
-
-        CAN バスからモーターの最新状態メッセージを受け取るたびに呼ばれる。
-        非同期的に状態を更新して、次の update() 呼び出しで使用できるようにする。
+        CAN バスからこのモーターの最新状態メッセージを受け取るたびにハンドラーから呼ばれ、最新の状態情報を保存します。
 
         Args:
-            MIT_state: The MIT_Motor_State namedtuple with the most recent motor state.
+            MIT_state: 最新のモーター状態を含む MIT_Motor_State 名前付きタプル。
 
         Raises:
-            RuntimeError when device sends back an error code that is not 0 (0 meaning no error)
+            RuntimeError: デバイスが 0 以外のエラーコードを返した場合（0 はエラーなしを意味します）。
         """
         # エラーチェック：モーターがエラーを返している場合は例外を発生
         if MIT_state.error != 0:
@@ -735,24 +734,24 @@ class TMotorManager_mit_can:
     # with the most recent message recieved
     def update(self):
         """
-        This method is called by the user to synchronize the current state used by the controller
-        with the most recent message recieved, as well as to send the current command.
+        このメソッドは、コントローラーが使用する現在の状態を最新の受信メッセージと同期させるとともに、現在のコマンドを送信するためにユーザーが呼び出します。
         """
 
         # check that the motor is safely turned on
         if not self._entered:
             raise RuntimeError(
-                "Tried to update motor state before safely powering on for device: " + self.device_info_string()
+                "モーター制御を安全に電源オンする前にモーター状態を更新しようとしました。デバイス: "
+                + self.device_info_string()
             )
 
         if self.get_temperature_celsius() > self.max_temp:
-            raise RuntimeError("Temperature greater than {}C for device: {}".format(self.max_temp, self.device_info_string()))
+            raise RuntimeError("温度が {}℃を超えています。デバイス: {}".format(self.max_temp, self.device_info_string()))
 
         # check that the motor data is recent
         # print(self._command_sent)
         now = time.time()
         if (now - self._last_command_time) < 0.25 and ((now - self._last_update_time) > 0.1):
-            # print("State update requested but no data recieved from motor. Delay longer after zeroing, decrease frequency, or check connection.")
+            # print("状態の更新が要求されましたが、モーターからのデータがありません。ゼロ調整後の遅延時間を長くするか、周波数を下げるか、接続を確認してください。")
             warnings.warn(
                 "状態の更新が要求されましたが、モーターからのデータがありません。ゼロ調整後の遅延時間を長くするか、周波数を下げるか、接続を確認してください。"
                 + self.device_info_string(),
@@ -784,14 +783,13 @@ class TMotorManager_mit_can:
 
         actual_current = new_curr
 
-        # The TMotor will wrap around to -max at the limits for all values it returns!! Account for this
+        # TMotor はすべての返却値で限界を超えると -max にラップアラウンドします！！これを考慮に入れる
         if (thresh_pos <= new_pos and new_pos <= P_max) and (-P_max <= old_pos and old_pos <= -thresh_pos):
             self._times_past_position_limit -= 1
         elif (thresh_pos <= old_pos and old_pos <= P_max) and (-P_max <= new_pos and new_pos <= -thresh_pos):
             self._times_past_position_limit += 1
 
-        # current is basically the same as position, but if you instantly command a switch it can actually change fast enough
-        # to throw this off, so that is accounted for too. We just put a hard limit on the current to solve current jitter problems.
+        # 電流は基本的に位置と同じですが、瞬時にコマンドを切り替えると実際に十分に速く変化してこれを狂わせる可能性があるため、それも考慮されています。電流ジッターの問題を解決するために電流にハードリミットを設けています。
         if (thresh_curr <= new_curr and new_curr <= I_max) and (-I_max <= old_curr and old_curr <= -thresh_curr):
             # self._old_current_zone = -1
             # if (thresh_curr <= curr_command and curr_command <= I_max):
@@ -815,13 +813,13 @@ class TMotorManager_mit_can:
                 actual_current = self.TMotor_current_to_qaxis_current(MIT_Params[self.type]["T_max"])
             new_curr = actual_current
 
-        # velocity should work the same as position
+        # 速度は位置と同じように動作するはず
         if (thresh_vel <= new_vel and new_vel <= V_max) and (-V_max <= old_vel and old_vel <= -thresh_vel):
             self._times_past_velocity_limit -= 1
         elif (thresh_vel <= old_vel and old_vel <= V_max) and (-V_max <= new_vel and new_vel <= -thresh_vel):
             self._times_past_velocity_limit += 1
 
-        # update expanded state variables
+        # 拡張状態変数を更新
         self._old_pos = new_pos
         self._old_curr = new_curr
         self._old_vel = new_vel
@@ -845,11 +843,8 @@ class TMotorManager_mit_can:
     # 制御モードに応じてモーターにコマンドを送信
     def _send_command(self):
         """
-        Sends a command to the motor depending on whats controlm mode the motor is in. This method
-        is called by update(), and should only be called on its own if you don't want to update the motor state info.
-
-        制御モードに応じて、適切なコマンドを CAN バス経由でモーターに送信。
-        update() から呼ばれるが、状態更新なしでコマンドを送りたい場合は単独で呼び出してもよい。
+        制御モードに応じて、適切なコマンドを CAN バス経由でモーターに送信します。
+        update() から呼ばれますが、状態更新なしでコマンドを送りたい場合は単独で呼び出してもよいです。
         """
         # 制御モードをチェックし、それぞれのモードに対応するコマンドを送信
         if self._control_state == _TMotorManState.FULL_STATE:
@@ -886,94 +881,92 @@ class TMotorManager_mit_can:
 
     # モーターの基本的なユーティリティコマンド
     def power_on(self):
-        """Powers on the motor. You may hear a faint hiss."""
+        """モーターの電源をオンにします。かすかなヒス音が聞こえるかもしれません。"""
         self._canman.power_on(self.ID)
         self._updated = True
 
     def power_off(self):
-        """Powers off the motor."""
+        """モーターの電源をオフにします。"""
         self._canman.power_off(self.ID)
 
     # 位置をゼロにする（スケールと同様に、ゼロ化後は約 1 秒待つ必要がある）
     # ゼロ化後の待機時間はユーザーの責任
     def set_zero_position(self):
-        """Zeros the position--like a scale you have to wait about a second before you can
-        use the motor again. This responsibility is on the user!!"""
+        """位置をゼロにします。スケールのように、約1秒待つ必要があります。"""
         self._canman.zero(self.ID)
         self._last_command_time = time.time()
 
     # モーター状態を取得するゲッター関数
     def get_temperature_celsius(self):
         """
-        Returns:
-        The most recently updated motor temperature in degrees C.
+        戻り値:
+        最新のモーター温度（摂氏度）。
         """
         return self._motor_state.temperature
 
     def get_motor_error_code(self):
         """
-        Returns:
-        The most recently updated motor error code.
-        Note the program should throw a runtime error before you get a chance to read
-        this value if it is ever anything besides 0.
+        戻り値:
+        最新のモーターエラーコード。
+        注意: この値が 0 以外の場合、プログラムはランタイムエラーをスローします。
 
-        Codes:
-        - 0 : 'No Error',
-        - 1 : 'Over temperature fault',
-        - 2 : 'Over current fault',
-        - 3 : 'Over voltage fault',
-        - 4 : 'Under voltage fault',
-        - 5 : 'Encoder fault',
-        - 6 : 'Phase current unbalance fault (The hardware may be damaged)'
+        コード:
+        - 0 : 'エラーなし'
+        - 1 : '過温度故障'
+        - 2 : '過電流故障'
+        - 3 : '過電圧故障'
+        - 4 : '低電圧故障'
+        - 5 : 'エンコーダー故障'
+        - 6 : '相電流不平衡故障（ハードウェアが損傷している可能性があります）'
         """
         return self._motor_state.error
 
     def get_current_qaxis_amps(self):
         """
-        Returns:
-        The most recently updated qaxis current in amps
+        戻り値:
+        最新の q 軸電流（アンペア）。
         """
         return self._motor_state.current
 
     def get_output_angle_radians(self):
         """
-        Returns:
-        The most recently updated output angle in radians
+        戻り値:
+        最新の出力角度（ラジアン）。
         """
         return self._motor_state.position
 
     def get_output_velocity_radians_per_second(self):
         """
-        Returns:
-            The most recently updated output velocity in radians per second
+        戻り値:
+            最新の出力速度（ラジアン/秒）。
         """
         return self._motor_state.velocity
 
     def get_output_acceleration_radians_per_second_squared(self):
         """
-        Returns:
-            The most recently updated output acceleration in radians per second per second
+        戻り値:
+            最新の出力加速度（ラジアン/秒²）。
         """
         return self._motor_state.acceleration
 
     def get_output_torque_newton_meters(self):
         """
-        Returns:
-            the most recently updated output torque in Nm
+        戻り値:
+            最新の出力トルク（Nm）。
         """
         return self.get_current_qaxis_amps() * MIT_Params[self.type]["Kt_actual"] * MIT_Params[self.type]["GEAR_RATIO"]
 
-    # uses plain impedance mode, will send 0.0 for current command.
+    # プレーンインピーダンスモードを使用し、電流コマンドに 0.0 を送信します。
     def set_impedance_gains_real_unit(self, kp=0, ki=0, K=0.08922, B=0.0038070, ff=0):
         """
-        Uses plain impedance mode, will send 0.0 for current command in addition to position request.
+        プレーンインピーダンスモードを使用し、位置リクエストに加えて電流コマンドに 0.0 を送信します。
 
         Args:
-            kp: A dummy argument for backward compatibility with the dephy library.
-            ki: A dummy argument for backward compatibility with the dephy library.
-            K: The stiffness in Nm/rad
-            B: The damping in Nm/(rad/s)
-            ff: A dummy argument for backward compatibility with the dephy library.
+            kp: Dephy ライブラリとの後方互換性のためのダミー引数。
+            ki: Dephy ライブラリとの後方互換性のためのダミー引数。
+            K: 剛性 [Nm/rad]。
+            B: 減衰 [Nm/(rad/s)]。
+            ff: Dephy ライブラリとの後方互換性のためのダミー引数。
         """
         assert isfinite(K) and MIT_Params[self.type]["Kp_min"] <= K and K <= MIT_Params[self.type]["Kp_max"]
         assert isfinite(B) and MIT_Params[self.type]["Kd_min"] <= B and B <= MIT_Params[self.type]["Kd_max"]
@@ -982,42 +975,43 @@ class TMotorManager_mit_can:
         self._command.velocity = 0.0
         self._control_state = _TMotorManState.IMPEDANCE
 
-    # uses full MIT mode, will send whatever current command is set.
+    # フル MIT モードを使用し、設定された電流コマンドを送信します。
     def set_impedance_gains_real_unit_full_state_feedback(self, kp=0, ki=0, K=0.08922, B=0.0038070, ff=0):
-        """ "
-        Uses full state feedback mode, will send whatever current command is set in addition to position request.
+        """
+        フル状態フィードバックモードを使用し、位置リクエストに加えて設定された電流コマンドを送信します。
 
         Args:
-            kp: A dummy argument for backward compatibility with the dephy library.
-            ki: A dummy argument for backward compatibility with the dephy library.
-            K: The stiffness in Nm/rad
-            B: The damping in Nm/(rad/s)
-            ff: A dummy argument for backward compatibility with the dephy library."""
+            kp: Dephy ライブラリとの後方互換性のためのダミー引数。
+            ki: Dephy ライブラリとの後方互換性のためのダミー引数。
+            K: 剛性 [Nm/rad]。
+            B: 減衰 [Nm/(rad/s)]。
+            ff: Dephy ライブラリとの後方互換性のためのダミー引数。
+        """
         assert isfinite(K) and MIT_Params[self.type]["Kp_min"] <= K and K <= MIT_Params[self.type]["Kp_max"]
         assert isfinite(B) and MIT_Params[self.type]["Kd_min"] <= B and B <= MIT_Params[self.type]["Kd_max"]
         self._command.kp = K
         self._command.kd = B
         self._control_state = _TMotorManState.FULL_STATE
 
-    # uses plain current mode, will send 0.0 for position gains.
+    # プレーン電流モードを使用し、位置ゲインに 0.0 を送信します。
     def set_current_gains(self, kp=40, ki=400, ff=128, spoof=False):
         """
-        Uses plain current mode, will send 0.0 for position gains in addition to requested current.
+        プレーン電流モードを使用し、位置ゲインに加えて要求された電流を送信します。
 
         Args:
-            kp: A dummy argument for backward compatibility with the dephy library.
-            ki: A dummy argument for backward compatibility with the dephy library.
-            ff: A dummy argument for backward compatibility with the dephy library.
-            spoof: A dummy argument for backward compatibility with the dephy library.
+            kp: Dephy ライブラリとの後方互換性のためのダミー引数。
+            ki: Dephy ライブラリとの後方互換性のためのダミー引数。
+            ff: Dephy ライブラリとの後方互換性のためのダミー引数。
+            spoof: Dephy ライブラリとの後方互換性のためのダミー引数。
         """
         self._control_state = _TMotorManState.CURRENT
 
     def set_speed_gains(self, kd=1.0):
         """
-        Uses plain speed mode, will send 0.0 for position gain and for feed forward current.
+        プレーン速度モードを使用し、位置ゲインとフィードフォワード電流に 0.0 を送信します。
 
         Args:
-            kd: The gain for the speed controller. Control law will be (v_des - v_actual)*kd = iq
+            kd: 速度コントローラーのゲイン。制御法は (v_des - v_actual)*kd = iq です。
         """
         self._command.kd = kd
         self._control_state = _TMotorManState.SPEED
@@ -1025,12 +1019,12 @@ class TMotorManager_mit_can:
     # インピーダンス制御またはフル状態フィードバック（MIT）制御の位置目標値を設定
     def set_output_angle_radians(self, pos):
         """
-        Used for either impedance or full state feedback mode to set output angle command.
-        Note, this does not send a command, it updates the TMotorManager's saved command,
-        which will be sent when update() is called.
+        インピーダンスまたはフル状態フィードバックモードで出力角度コマンドを設定します。
+        注意: このメソッドはコマンドを送信せず、TMotorManager の保存されたコマンドを更新します。
+        update() が呼び出されたときに送信されます。
 
         Args:
-            pos: The desired output position in rads
+            pos: 希望する出力位置 [rad]。
         """
         # position commands must be within a certain range :/
         # pos = (np.abs(pos) % MIT_Params[self.type]["P_max"])*np.sign(pos) # this doesn't work because it will unwind itself!
@@ -1048,12 +1042,12 @@ class TMotorManager_mit_can:
 
     def set_output_velocity_radians_per_second(self, vel):
         """
-        Used for either speed or full state feedback mode to set output velocity command.
-        Note, this does not send a command, it updates the TMotorManager's saved command,
-        which will be sent when update() is called.
+        速度またはフル状態フィードバックモードで出力速度コマンドを設定します。
+        注意: このメソッドはコマンドを送信せず、TMotorManager の保存されたコマンドを更新します。
+        update() が呼び出されたときに送信されます。
 
         Args:
-            vel: The desired output speed in rad/s
+            vel: 希望する出力速度 [rad/s]。
         """
         if np.abs(vel) >= MIT_Params[self.type]["V_max"]:
             raise RuntimeError(
@@ -1069,12 +1063,12 @@ class TMotorManager_mit_can:
     # 電流制御またはフル状態フィードバック制御の電流目標値を設定
     def set_motor_current_qaxis_amps(self, current):
         """
-        Used for either current or full state feedback mode to set current command.
-        Note, this does not send a command, it updates the TMotorManager's saved command,
-        which will be sent when update() is called.
+        電流またはフル状態フィードバックモードで電流コマンドを設定します。
+        注意: このメソッドはコマンドを送信せず、TMotorManager の保存されたコマンドを更新します。
+        update() が呼び出されたときに送信されます。
 
         Args:
-            current: the desired current in amps.
+            current: 希望する電流 [A]。
         """
         if self._control_state not in [_TMotorManState.CURRENT, _TMotorManState.FULL_STATE]:
             raise RuntimeError(
@@ -1085,82 +1079,82 @@ class TMotorManager_mit_can:
     # 電流制御またはフル状態フィードバック制御で、希望トルクから電流を計算して設定
     def set_output_torque_newton_meters(self, torque):
         """
-        Used for either current or MIT Mode to set current, based on desired torque.
-        If a more complicated torque model is available for the motor, that will be used.
-        Otherwise it will just use the motor's torque constant.
+        電流または MIT モードで、希望するトルクに基づいて電流を設定します。
+        モーターに複雑なトルクモデルが利用可能な場合はそれを使用します。
+        それ以外の場合は、モーターのトルク定数を使用します。
 
         Args:
-            torque: The desired output torque in Nm.
+            torque: 希望する出力トルク [Nm]。
         """
         self.set_motor_current_qaxis_amps((torque / MIT_Params[self.type]["Kt_actual"] / MIT_Params[self.type]["GEAR_RATIO"]))
 
     # 減速比を考慮したモーター側の関数（モーター軸側のトルク制御）
     def set_motor_torque_newton_meters(self, torque):
         """
-        Version of set_output_torque that accounts for gear ratio to control motor-side torque
+        減速比を考慮してモーター側のトルクを制御する set_output_torque のバージョン。
 
         Args:
-            torque: The desired motor-side torque in Nm.
+            torque: 希望するモーター側のトルク [Nm]。
         """
         self.set_output_torque_newton_meters(torque * MIT_Params[self.type]["Kt_actual"])
 
     def set_motor_angle_radians(self, pos):
         """
-        Wrapper for set_output_angle that accounts for gear ratio to control motor-side angle
+        減速比を考慮してモーター側の角度を制御する set_output_angle のラッパー。
 
         Args:
-            pos: The desired motor-side position in rad.
+            pos: 希望するモーター側の位置 [rad]。
         """
         self.set_output_angle_radians(pos / (MIT_Params[self.type]["GEAR_RATIO"]))
 
     def set_motor_velocity_radians_per_second(self, vel):
         """
-        Wrapper for set_output_velocity that accounts for gear ratio to control motor-side velocity
+        減速比を考慮してモーター側の速度を制御する set_output_velocity のラッパー。
 
         Args:
-            vel: The desired motor-side velocity in rad/s.
+            vel: 希望するモーター側の速度 [rad/s]。
         """
         self.set_output_velocity_radians_per_second(vel / (MIT_Params[self.type]["GEAR_RATIO"]))
 
     def get_motor_angle_radians(self):
         """
-        Wrapper for get_output_angle that accounts for gear ratio to get motor-side angle
+        減速比を考慮してモーター側の角度を取得する get_output_angle のラッパー。
 
         Returns:
-            The most recently updated motor-side angle in rad.
+            最新のモーター側の角度 [rad]。
         """
         return self._motor_state.position * MIT_Params[self.type]["GEAR_RATIO"]
 
     def get_motor_velocity_radians_per_second(self):
         """
-        Wrapper for get_output_velocity that accounts for gear ratio to get motor-side velocity
+        減速比を考慮してモーター側の速度を取得する get_output_velocity のラッパー。
 
         Returns:
-            The most recently updated motor-side velocity in rad/s.
+            最新のモーター側の速度 [rad/s]。
         """
         return self._motor_state.velocity * MIT_Params[self.type]["GEAR_RATIO"]
 
     def get_motor_acceleration_radians_per_second_squared(self):
         """
-        Wrapper for get_output_acceleration that accounts for gear ratio to get motor-side acceleration
+        減速比を考慮してモーター側の加速度を取得する get_output_acceleration のラッパー。
 
         Returns:
-            The most recently updated motor-side acceleration in rad/s/s.
+            最新のモーター側の加速度 [rad/s/s]。
         """
         return self._motor_state.acceleration * MIT_Params[self.type]["GEAR_RATIO"]
 
     def get_motor_torque_newton_meters(self):
         """
-        Wrapper for get_output_torque that accounts for gear ratio to get motor-side torque
+        減速比を考慮してモーター側のトルクを取得する get_output_torque のラッパー。
 
         Returns:
-            The most recently updated motor-side torque in Nm.
+            最新のモーター側のトルク [Nm]。
         """
         return self.get_output_torque_newton_meters() * MIT_Params[self.type]["GEAR_RATIO"]
 
     # デバッグ表示用：モーターの情報を見やすく表示
     def __str__(self):
-        """Prints the motor's device info and current"""
+        """モーターのデバイス情報と電流を表示します。"""
         return (
             self.device_info_string()
             + " | Position: "
@@ -1175,27 +1169,24 @@ class TMotorManager_mit_can:
         )
 
     def device_info_string(self):
-        """Prints the motor's ID and device type."""
+        """モーターの ID とデバイスタイプを表示します。"""
         return str(self.type) + "  ID: " + str(self.ID)
 
     # CAN 接続確認：10 回のコマンドを送り、10 回の応答があるかで接続を判定
     def check_can_connection(self):
         """
-        Checks the motor's connection by attempting to send 10 startup messages.
-        If it gets 10 replies, then the connection is confirmed.
+        起動メッセージを 10 回送信することでモーターの接続を確認します。
+        10 回の応答が返された場合、接続が確立されていると判断します。
 
-        モーターとの CAN 接続を確認するため起動メッセージを 10 回送信し、
-        10 回の応答が返されたら接続が確立されていると判断する。
-        __enter__() によってモーター制御が有効になった後にのみ呼び出し可能。
+        __enter__() によってモーター制御が有効になった後にのみ呼び出し可能です。
 
         Returns:
-            True if a connection is established and False otherwise.
-            接続が確立されている場合は True、それ以外の場合は False です。
+            接続が確立されている場合は True、それ以外の場合は False。
         """
         # モーター制御が有効になっていることを確認
         if not self._entered:
             raise RuntimeError(
-                "Tried to check_can_connection before entering motor control! Enter control using the __enter__ method, or instantiating the TMotorManager in a with block."
+                "モーター制御を開始する前に check_can_connection を呼び出そうとしました！__enter__ メソッドを使用して制御を開始するか、with ブロック内で TMotorManager をインスタンス化してください。"
             )
 
         # 一時的な CAN リスナーを作成（接続確認中のメッセージを受け取るため）
@@ -1220,51 +1211,50 @@ class TMotorManager_mit_can:
         self._canman.notifier.remove_listener(Listener)
         return success
 
-    # コントローラー変数（プロパティー）
-    temperature = property(get_temperature_celsius, doc="temperature_degrees_C")
-    """Temperature in Degrees Celsius"""
+    temperature = property(get_temperature_celsius, doc="温度（摂氏度）")
+    """温度（摂氏度）"""
 
-    error = property(get_motor_error_code, doc="temperature_degrees_C")
-    """Motor error code. 0 means no error."""
+    error = property(get_motor_error_code, doc="温度（摂氏度）")
+    """モーターエラーコード。0 はエラーなしを意味します。"""
 
     # 電気量に関連する変数（プロパティー）
     current_qaxis = property(get_current_qaxis_amps, set_motor_current_qaxis_amps, doc="current_qaxis_amps_current_only")
-    """Q-axis current in amps"""
+    """Q軸電流（アンペア）"""
 
     # 出力側（ギアボックス後）の変数（プロパティー）
     position = property(get_output_angle_radians, set_output_angle_radians, doc="output_angle_radians_impedance_only")
-    """Output angle in rad"""
+    """出力角度（ラジアン）"""
 
     velocity = property(
         get_output_velocity_radians_per_second,
         set_output_velocity_radians_per_second,
         doc="output_velocity_radians_per_second",
     )
-    """Output velocity in rad/s"""
+    """出力速度（ラジアン/秒）"""
 
     acceleration = property(
         get_output_acceleration_radians_per_second_squared, doc="output_acceleration_radians_per_second_squared"
     )
-    """Output acceleration in rad/s/s"""
+    """出力加速度（ラジアン/秒²）"""
 
     torque = property(get_output_torque_newton_meters, set_output_torque_newton_meters, doc="output_torque_newton_meters")
-    """Output torque in Nm"""
+    """出力トルク（Nm）"""
 
     # モーター側（ギアボックス前）の変数（プロパティー）
     position_motorside = property(get_motor_angle_radians, set_motor_angle_radians, doc="motor_angle_radians_impedance_only")
-    """Motor-side angle in rad"""
+    """モーター側角度（ラジアン）"""
 
     velocity_motorside = property(
         get_motor_velocity_radians_per_second, set_motor_velocity_radians_per_second, doc="motor_velocity_radians_per_second"
     )
-    """Motor-side velocity in rad/s"""
+    """モーター側速度（ラジアン/秒）"""
 
     acceleration_motorside = property(
         get_motor_acceleration_radians_per_second_squared, doc="motor_acceleration_radians_per_second_squared"
     )
-    """Motor-side acceleration in rad/s/s"""
+    """モーター側加速度（ラジアン/秒²）"""
 
     torque_motorside = property(
         get_motor_torque_newton_meters, set_motor_torque_newton_meters, doc="motor_torque_newton_meters"
     )
-    """Motor-side torque in Nm"""
+    """モーター側トルク（Nm）"""
