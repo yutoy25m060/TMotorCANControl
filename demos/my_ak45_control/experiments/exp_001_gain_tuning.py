@@ -16,6 +16,7 @@ import time
 import yaml
 import numpy as np
 from TMotorCANControl.mit_can import TMotorManager_mit_can
+from NeuroLocoMiddleware.SoftRealtimeLoop import SoftRealtimeLoop
 
 # 設定ファイルの読み込み
 with open("../config.yaml", "r", encoding="utf-8") as f:
@@ -75,34 +76,28 @@ for i, gain_set in enumerate(GAIN_SETS):
 
         # 安定待ち
         print(f"安定待ち {SETTLE_TIME} 秒...")
-        start_time = time.time()
-        while time.time() - start_time < SETTLE_TIME:
+        loop = SoftRealtimeLoop(dt=0.01, report=False, fade=0)  # 安定待ちはレポートなし
+        for t in loop:
             motor.update()
-            time.sleep(0.01)
+            motor.set_output_angle_radians(0.0)  # ゼロ位置維持
+            if t >= SETTLE_TIME:
+                break
 
         # ステップ応答
         print(f"ステップ応答測定開始 ({STEP_DURATION} 秒)...")
-        step_start = time.time()
-        loop_count = 0
-
-        while time.time() - step_start < STEP_DURATION:
-            loop_start = time.time()
-
+        loop = SoftRealtimeLoop(dt=0.01, report=False, fade=0)  # 測定中はレポートなし
+        for t in loop:
             motor.update()
             motor.set_output_angle_radians(TARGET_POSITION)
 
             # 進捗表示
-            loop_count += 1
-            if loop_count % 50 == 0:  # 500ms ごと
-                elapsed = time.time() - step_start
+            if loop.count % 50 == 0:  # 500ms ごと
                 current_pos = motor.get_output_angle_radians()
                 error = TARGET_POSITION - current_pos
                 print(".1f.3f")
 
-            # 制御周期 10ms
-            elapsed_loop = time.time() - loop_start
-            if elapsed_loop < 0.01:
-                time.sleep(0.01 - elapsed_loop)
+            if t >= STEP_DURATION:
+                break
 
         print(f"ログ保存: {LOG_FILE}")
 

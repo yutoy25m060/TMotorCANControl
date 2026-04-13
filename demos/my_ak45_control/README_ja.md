@@ -25,6 +25,18 @@ my_ak45_control/
 
 ### 1. 依存関係のインストール
 
+必要なライブラリ:
+- `TMotorCANControl`  (ローカルパッケージ)
+- `PyYAML`          (設定ファイル読み込み)
+- `numpy`           (制御計算)
+- `python-can>=4.0.0`  (CAN 通信)
+- `pyserial>=3.5`      (シリアル通信、TMotorCANControl の依存)
+- `NeuroLocoMiddleware` (TMotorCANControl の依存)
+
+任意の解析ライブラリ:
+- `pandas`          (ログ分析)
+- `matplotlib`      (可視化)
+
 ```bash
 cd /path/to/TMotorCANControl
 pip install -e .
@@ -87,7 +99,54 @@ python exp_003_multi_motor.py
 python exp_004_trajectory.py
 ```
 
-## 制御モード
+## リアルタイム制御 (NeuroLocoMiddleware 統合)
+
+この開発環境では、安定したリアルタイム制御を実現するために [NeuroLocoMiddleware](https://pypi.org/project/NeuroLocoMiddleware/) の `SoftRealtimeLoop` を使用しています。
+
+### 特徴
+
+- **安定したタイミング**: 自動タイミング補正により、正確な制御周期 (デフォルト: 100Hz) を維持
+- **パフォーマンス監視**: 制御ループのタイミング情報をリアルタイムでレポート
+- **柔軟な設定**: `config.yaml` で制御周期やレポート設定を調整可能
+
+### 設定パラメータ
+
+```yaml
+control:
+  realtime:
+    dt: 0.01        # 制御周期 [秒] (100Hz)
+    report: true     # パフォーマンスレポート有効
+    fade: 0          # フェード時間 [秒]
+```
+
+### 使用例
+
+```python
+from NeuroLocoMiddleware.SoftRealtimeLoop import SoftRealtimeLoop
+
+# リアルタイム制御ループの初期化
+loop = SoftRealtimeLoop(dt=0.01, report=True, fade=0)
+
+# 制御ループ
+for t in loop:
+    # 制御処理
+    motor.update()
+    motor.set_output_angle_radians(desired_position)
+
+    # 定期的な情報表示
+    if loop.count % 10 == 0:  # 100msごと
+        print(f"経過時間: {t:.1f} 秒")
+
+    # 実験時間チェック
+    if t >= runtime_seconds:
+        break
+```
+
+### 利点
+
+1. **タイミングの安定性**: 手動の `time.sleep()` よりも正確な周期制御
+2. **パフォーマンス監視**: 制御ループの遅延やジッターを検知
+3. **コードの簡潔化**: タイミング管理をミドルウェアに委譲
 
 ### 1. インピーダンス制御
 
@@ -103,7 +162,25 @@ motor.set_impedance_gains_real_unit(K=10.0, B=0.5)
 motor.set_output_angle_radians(desired_angle)
 ```
 
-### 2. 電流制御
+### 2. 位置制御
+
+モーターの角度位置を直接制御します。目標位置を指定すると、モーターがその位置に移動します。
+
+**特徴:**
+- 位置ベースのフィードバック制御
+- 軌跡追従や精密位置決めに適している
+- インピーダンス制御と組み合わせ可能
+
+**使用例:**
+```python
+motor.set_output_angle_radians(desired_position)  # 目標位置 [rad]
+```
+
+**実験例:**
+- `exp_002_step_response.py`: ステップ応答特性の評価
+- `exp_004_trajectory.py`: 軌跡追従制御
+
+### 3. 電流制御
 
 モーターに直接電流を指令します。
 
@@ -117,7 +194,7 @@ motor.set_current_gains(Kp=0.1, Ki=0.01)
 motor.set_output_torque_newton_meters(desired_torque)
 ```
 
-### 3. 速度制御
+### 4. 速度制御
 
 モーターの速度を制御します。
 

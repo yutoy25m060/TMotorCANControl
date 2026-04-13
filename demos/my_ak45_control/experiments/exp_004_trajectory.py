@@ -16,29 +16,30 @@ import time
 import yaml
 import numpy as np
 from TMotorCANControl.mit_can import TMotorManager_mit_can
+from NeuroLocoMiddleware.SoftRealtimeLoop import SoftRealtimeLoop
 
 # 設定ファイルの読み込み
-with open('../config.yaml', 'r', encoding='utf-8') as f:
+with open("../config.yaml", "r", encoding="utf-8") as f:
     config = yaml.safe_load(f)
 
 # 設定の展開
-MOTOR_TYPE = config['motor']['type']
-MOTOR_ID = config['motor']['id']
-MAX_TEMP = config['motor']['max_temp']
-LOG_VARS = config['logging']['vars']
+MOTOR_TYPE = config["motor"]["type"]
+MOTOR_ID = config["motor"]["id"]
+MAX_TEMP = config["motor"]["max_temp"]
+LOG_VARS = config["logging"]["vars"]
 
 # 制御パラメータ
-K = config['control']['impedance']['K']
-B = config['control']['impedance']['B']
+K = config["control"]["impedance"]["K"]
+B = config["control"]["impedance"]["B"]
 
 # 軌跡パラメータ
-AMPLITUDE = np.pi/2  # 振幅 [rad] (90°)
-PERIOD = 4.0         # 周期 [秒]
-RUNTIME_SECONDS = 20 # 実験時間 [秒]
+AMPLITUDE = np.pi / 2  # 振幅 [rad] (90°)
+PERIOD = 4.0  # 周期 [秒]
+RUNTIME_SECONDS = 20  # 実験時間 [秒]
 
 # ログファイル名
 timestamp = int(time.time())
-LOG_FILE = f'../logs/exp004_trajectory_{timestamp}.csv'
+LOG_FILE = f"../logs/exp004_trajectory_{timestamp}.csv"
 
 print(f"=== 実験 004: 軌跡追従制御 ===")
 print(f"モーター: {MOTOR_TYPE} (ID: {MOTOR_ID})")
@@ -46,6 +47,7 @@ print(f"制御ゲイン: K={K} Nm/rad, B={B} Nm/(rad/s)")
 print(f"軌跡: 三角波, 振幅={AMPLITUDE:.3f} rad, 周期={PERIOD} 秒")
 print(f"ログ保存: {LOG_FILE}")
 print("=" * 50)
+
 
 def generate_triangle_trajectory(t, amplitude, period):
     """三角波軌跡を生成"""
@@ -65,6 +67,7 @@ def generate_triangle_trajectory(t, amplitude, period):
 
     return position
 
+
 def calculate_trajectory_velocity(t, amplitude, period, dt=0.01):
     """軌跡の速度を数値微分で計算"""
     pos_current = generate_triangle_trajectory(t, amplitude, period)
@@ -72,15 +75,11 @@ def calculate_trajectory_velocity(t, amplitude, period, dt=0.01):
     velocity = (pos_next - pos_current) / dt
     return velocity
 
+
 # モーター制御
 with TMotorManager_mit_can(
-    motor_type=MOTOR_TYPE,
-    motor_ID=MOTOR_ID,
-    max_mosfett_temp=MAX_TEMP,
-    CSV_file=LOG_FILE,
-    log_vars=LOG_VARS
+    motor_type=MOTOR_TYPE, motor_ID=MOTOR_ID, max_mosfett_temp=MAX_TEMP, CSV_file=LOG_FILE, log_vars=LOG_VARS
 ) as motor:
-
     # 接続確認
     if not motor.check_can_connection():
         print("エラー: CAN 接続に失敗しました。")
@@ -97,15 +96,11 @@ with TMotorManager_mit_can(
 
     # メイン制御ループ
     print("軌跡追従開始...")
-    start_time = time.time()
-    loop_count = 0
+    loop = SoftRealtimeLoop(dt=0.01, report=True, fade=0)  # 100Hz制御
     max_tracking_error = 0.0
 
-    while time.time() - start_time < RUNTIME_SECONDS:
-        loop_start = time.time()
-
+    for t in loop:
         # 軌跡生成
-        t = time.time() - start_time
         desired_pos = generate_triangle_trajectory(t, AMPLITUDE, PERIOD)
         desired_vel = calculate_trajectory_velocity(t, AMPLITUDE, PERIOD)
 
@@ -119,23 +114,21 @@ with TMotorManager_mit_can(
         max_tracking_error = max(max_tracking_error, tracking_error)
 
         # 制御情報表示（200msごと）
-        loop_count += 1
-        if loop_count % 20 == 0:
-            elapsed = time.time() - start_time
+        if loop.count % 20 == 0:
             current_vel = motor.get_output_velocity_radians_per_second()
-            print(".1f"
-                  ".3f"
-                  ".3f"
-                  ".3f"
-                  ".3f")
+            print(
+                f"経過時間: {t:.1f} 秒 | "
+                f"目標位置: {desired_pos:.3f} rad | "
+                f"現在位置: {current_pos:.3f} rad | "
+                f"現在速度: {current_vel:.3f} rad/s | "
+                f"追従誤差: {tracking_error:.3f} rad"
+            )
 
-        # 制御周期 10ms (100Hz)
-        elapsed_loop = time.time() - loop_start
-        if elapsed_loop < 0.01:
-            time.sleep(0.01 - elapsed_loop)
+        # 実験時間チェック
+        if t >= RUNTIME_SECONDS:
+            break
 
-    total_time = time.time() - start_time
-    print(".1f"
-          ".3f"
+    total_time = t
+    print(f"実行時間: {total_time:.2f} 秒 | 最大追従誤差: {max_tracking_error:.3f} rad")
 print(f"ログ保存完了: {LOG_FILE}")
 print("実験 004 完了")

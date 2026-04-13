@@ -12,21 +12,22 @@
 import time
 import yaml
 from TMotorCANControl.mit_can import TMotorManager_mit_can
+from NeuroLocoMiddleware.SoftRealtimeLoop import SoftRealtimeLoop
 
 # 設定ファイルの読み込み
-with open('config.yaml', 'r', encoding='utf-8') as f:
+with open("config.yaml", "r", encoding="utf-8") as f:
     config = yaml.safe_load(f)
 
 # 設定の展開
-MOTOR_TYPE = config['motor']['type']
-MOTOR_ID = config['motor']['id']
-MAX_TEMP = config['motor']['max_temp']
-LOG_VARS = config['logging']['vars']
+MOTOR_TYPE = config["motor"]["type"]
+MOTOR_ID = config["motor"]["id"]
+MAX_TEMP = config["motor"]["max_temp"]
+LOG_VARS = config["logging"]["vars"]
 RUNTIME_SECONDS = 10  # 実験時間（秒）
 
 # ログファイル名（タイムスタンプ付き）
 timestamp = int(time.time())
-LOG_FILE = f'logs/basic_control_{timestamp}.csv'
+LOG_FILE = f"logs/basic_control_{timestamp}.csv"
 
 print(f"=== AK45-36 基本制御テンプレート ===")
 print(f"モーター: {MOTOR_TYPE} (ID: {MOTOR_ID})")
@@ -36,13 +37,8 @@ print("=" * 40)
 
 # モーター制御
 with TMotorManager_mit_can(
-    motor_type=MOTOR_TYPE,
-    motor_ID=MOTOR_ID,
-    max_mosfett_temp=MAX_TEMP,
-    CSV_file=LOG_FILE,
-    log_vars=LOG_VARS
+    motor_type=MOTOR_TYPE, motor_ID=MOTOR_ID, max_mosfett_temp=MAX_TEMP, CSV_file=LOG_FILE, log_vars=LOG_VARS
 ) as motor:
-
     # モーター接続確認
     if not motor.check_can_connection():
         print("エラー: CAN 接続に失敗しました。接続を確認してください。")
@@ -57,14 +53,11 @@ with TMotorManager_mit_can(
     # 制御モードの設定（ここではアイドルモード）
     motor.set_impedance_gains_real_unit(K=0, B=0)  # ゲインゼロでアイドル
 
-    # メイン制御ループ
+    # メイン制御ループ（NeuroLocoMiddleware使用）
     print("制御開始...")
-    start_time = time.time()
-    loop_count = 0
+    loop = SoftRealtimeLoop(dt=0.01, report=True, fade=0)  # 100Hz制御
 
-    while time.time() - start_time < RUNTIME_SECONDS:
-        loop_start = time.time()
-
+    for t in loop:
         # 状態更新（必須）
         motor.update()
 
@@ -74,19 +67,14 @@ with TMotorManager_mit_can(
         # motor.set_motor_current_qaxis_amps(2.0)  # 2A 電流指令
 
         # ループ情報表示（100msごと）
-        loop_count += 1
-        if loop_count % 10 == 0:  # 約 100ms 間隔
-            elapsed = time.time() - start_time
-            print(".1f"
-                  ".2f"
-                  ".2f")
+        if loop.count % 10 == 0:  # 約 100ms 間隔
+            print(f"経過時間: {t:.1f} 秒")
 
-        # 制御周期を 10ms に維持（100Hz）
-        elapsed_loop = time.time() - loop_start
-        if elapsed_loop < 0.01:
-            time.sleep(0.01 - elapsed_loop)
+        # 実験時間チェック
+        if t >= RUNTIME_SECONDS:
+            break
 
-    total_time = time.time() - start_time
-    print(".1f"
+    total_time = t
+    print(f"実行時間: {total_time:.2f} 秒")
 print(f"ログ保存完了: {LOG_FILE}")
 print("実験終了")

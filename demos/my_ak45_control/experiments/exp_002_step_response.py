@@ -16,30 +16,31 @@ import time
 import yaml
 import numpy as np
 from TMotorCANControl.mit_can import TMotorManager_mit_can
+from NeuroLocoMiddleware.SoftRealtimeLoop import SoftRealtimeLoop
 
 # 設定ファイルの読み込み
-with open('../config.yaml', 'r', encoding='utf-8') as f:
+with open("../config.yaml", "r", encoding="utf-8") as f:
     config = yaml.safe_load(f)
 
 # 設定の展開
-MOTOR_TYPE = config['motor']['type']
-MOTOR_ID = config['motor']['id']
-MAX_TEMP = config['motor']['max_temp']
-LOG_VARS = config['logging']['vars']
+MOTOR_TYPE = config["motor"]["type"]
+MOTOR_ID = config["motor"]["id"]
+MAX_TEMP = config["motor"]["max_temp"]
+LOG_VARS = config["logging"]["vars"]
 
 # 制御パラメータ（config.yaml から読み込み）
-K = config['control']['impedance']['K']
-B = config['control']['impedance']['B']
+K = config["control"]["impedance"]["K"]
+B = config["control"]["impedance"]["B"]
 
 # 実験パラメータ
-INITIAL_POSITION = 0.0     # 初期位置 [rad]
-TARGET_POSITION = np.pi/4  # 目標位置 [rad] (45°)
-STEP_TIME = 10.0           # ステップ持続時間 [秒]
-SETTLE_THRESHOLD = 0.01    # 安定判定閾値 [rad]
+INITIAL_POSITION = 0.0  # 初期位置 [rad]
+TARGET_POSITION = np.pi / 4  # 目標位置 [rad] (45°)
+STEP_TIME = 10.0  # ステップ持続時間 [秒]
+SETTLE_THRESHOLD = 0.01  # 安定判定閾値 [rad]
 
 # ログファイル名
 timestamp = int(time.time())
-LOG_FILE = f'../logs/exp002_step_response_{timestamp}.csv'
+LOG_FILE = f"../logs/exp002_step_response_{timestamp}.csv"
 
 print(f"=== 実験 002: ステップ応答特性評価 ===")
 print(f"モーター: {MOTOR_TYPE} (ID: {MOTOR_ID})")
@@ -51,13 +52,8 @@ print("=" * 50)
 
 # モーター制御
 with TMotorManager_mit_can(
-    motor_type=MOTOR_TYPE,
-    motor_ID=MOTOR_ID,
-    max_mosfett_temp=MAX_TEMP,
-    CSV_file=LOG_FILE,
-    log_vars=LOG_VARS
+    motor_type=MOTOR_TYPE, motor_ID=MOTOR_ID, max_mosfett_temp=MAX_TEMP, CSV_file=LOG_FILE, log_vars=LOG_VARS
 ) as motor:
-
     # 接続確認
     if not motor.check_can_connection():
         print("エラー: CAN 接続に失敗しました。")
@@ -74,29 +70,28 @@ with TMotorManager_mit_can(
 
     # 初期位置で安定待ち
     print("初期位置安定待ち (3秒)...")
-    start_time = time.time()
-    while time.time() - start_time < 3.0:
+    loop = SoftRealtimeLoop(dt=0.01, report=False, fade=0)
+    for t in loop:
         motor.update()
         motor.set_output_angle_radians(INITIAL_POSITION)
-        time.sleep(0.01)
+        if t >= 3.0:
+            break
 
     # ステップ応答開始
     print("ステップ応答測定開始...")
     step_start_time = time.time()
-    loop_count = 0
+    loop = SoftRealtimeLoop(dt=0.01, report=False, fade=0)
     settled_time = None
     max_position = INITIAL_POSITION
     min_position = INITIAL_POSITION
     overshoot_detected = False
 
-    while time.time() - step_start_time < STEP_TIME:
-        loop_start = time.time()
-
+    for t in loop:
         motor.update()
         motor.set_output_angle_radians(TARGET_POSITION)
 
         # 応答データ収集
-        current_time = time.time() - step_start_time
+        current_time = t  # SoftRealtimeLoop の時間を使用
         current_pos = motor.get_output_angle_radians()
         current_vel = motor.get_output_velocity_radians_per_second()
         error = TARGET_POSITION - current_pos
@@ -113,29 +108,24 @@ with TMotorManager_mit_can(
         if current_pos > TARGET_POSITION and not overshoot_detected:
             overshoot_detected = True
             overshoot_amount = current_pos - TARGET_POSITION
-            print(".3f"
-        # 進捗表示
-        loop_count += 1
-        if loop_count % 50 == 0:  # 500ms ごと
-            print(".1f"
-                  ".3f"
-                  ".3f")
+            print(f"オーバーシュート検出: {overshoot_amount:.3f} rad")
 
-        # 制御周期 10ms
-        elapsed_loop = time.time() - loop_start
-        if elapsed_loop < 0.01:
-            time.sleep(0.01 - elapsed_loop)
+        # 進捗表示
+        if loop.count % 50 == 0:  # 500ms ごと
+            print(f"経過時間: {current_time:.1f} 秒 | 現在位置: {current_pos:.3f} rad | 誤差: {error:.3f} rad")
+
+        if t >= STEP_TIME:
+            break
 
     # 実験結果サマリー
     total_time = time.time() - step_start_time
     final_position = motor.get_output_angle_radians()
     steady_state_error = TARGET_POSITION - final_position
 
-    print("
-=== ステップ応答結果 ===")
-    print(".3f")
-    print(".3f")
-    print(".3f")
+    print("=== ステップ応答結果 ===")
+    print(f"実行時間: {total_time:.2f} 秒")
+    print(f"最終位置: {final_position:.3f} rad")
+    print(f"定常状態誤差: {steady_state_error:.3f} rad")
     if overshoot_detected:
         print(".3f")
     if settled_time:
