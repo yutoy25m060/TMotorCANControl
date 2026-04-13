@@ -1,3 +1,6 @@
+# MIT CAN1のデータをリアルタイムでコンソールに表示し、同時にテキストファイルに保存するスクリプト
+
+
 import can
 import time
 import os
@@ -8,11 +11,12 @@ from datetime import datetime
 # ==========================================
 # 保存先のディレクトリ（例: '/home/pi/Research/logs'）
 # . (ドット) は現在のディレクトリを指します
-SAVE_PATH = "./can1_dump_logs" 
+SAVE_PATH = "./can1_dump_logs"
 
 # ファイル名のプレフィックス（接頭辞）
 FILE_PREFIX = "can1_dump"
 # ==========================================
+
 
 def start_logging():
     # 1. 保存先ディレクトリの作成（存在しない場合）
@@ -27,37 +31,38 @@ def start_logging():
 
     try:
         # can1 インターフェースの初期化
-        bus = can.interface.Bus(channel='can1', interface='socketcan')
+        bus = can.interface.Bus(channel="can1", interface="socketcan")
         print(f"can1 の監視を開始しました。")
         print(f"保存先: {full_log_path}")
         print("停止するには Ctrl+C を押してください。")
-        
+
         with open(full_log_path, "w") as f:
             f.write(f"--- CAN1 Logging Start: {datetime.now()} ---\n")
-            
+
             while True:
-                msg = bus.recv(1.0) # 1秒タイムアウト
-                
+                msg = bus.recv(1.0)  # 1秒タイムアウト
+
                 if msg is not None:
                     # タイムスタンプとデータをフォーマット
                     timestamp = msg.timestamp
-                    can_id = hex(msg.arbitration_id).upper().replace('0X', '').zfill(8)
+                    can_id = hex(msg.arbitration_id).upper().replace("0X", "").zfill(8)
                     dlc = msg.dlc
-                    data = ' '.join([hex(b).upper().replace('0X', '').zfill(2) for b in msg.data])
-                    
+                    data = " ".join([hex(b).upper().replace("0X", "").zfill(2) for b in msg.data])
+
                     line = f"({timestamp:.6f}) can1 {can_id} [{dlc}] {data}"
-                    
+
                     # コンソールに表示
                     print(line)
-                    
+
                     # ファイルに書き込み
                     f.write(line + "\n")
-                    f.flush() # 書き込みを即座に確定
+                    f.flush()  # 書き込みを即座に確定
 
     except KeyboardInterrupt:
         print(f"\n記録を終了しました。ファイル: {full_log_path}")
     except Exception as e:
         print(f"\nエラーが発生しました: {e}")
+
 
 if __name__ == "__main__":
     start_logging()
