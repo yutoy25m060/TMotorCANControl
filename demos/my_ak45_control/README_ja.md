@@ -20,6 +20,28 @@ my_ak45_control/
 │   └── README.md           # ログ分析ガイド
 └── README_ja.md            # このファイル
 ```
+### テンプレート
+- `0_template_basic.py`: with ブロック + update() ループの基本骨組み
+- 各実験は exp_NN_description.py として、テンプレートをコピーして作成
+
+### 設定管理
+- `config.yaml` で CAN 設定、モーター ID、ゲイン上限値を一元管理
+- 実験スクリプト側は config.yaml を読み込み、パラメータを上書き
+
+## ロギング
+- CSV 出力は自動的に logs/ に保存
+- ファイル名に タイムスタンプ を含める
+- README_ja.md で進捗・実験結果を記録
+
+## 版管理
+- logs/*.csv は .gitignore に
+- 実験スクリプト、テンプレート、config.yaml は Git 追跡対象
+
+## 運用
+1. 新規実験 → テンプレートをコピー
+2. パラメータを config.yaml で管理
+3. 実行 → ログ自動保存
+4. 結果を README_ja.md に記録
 
 ## セットアップ
 

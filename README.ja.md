@@ -10,6 +10,36 @@ CubeMars社のAKシリーズT-MotorアクチュエータをCANバス経由で制
 モーターのセットアップとPiの設定に関する書面の手順については、
 Open Source Legウェブサイトの[こちらの説明](https://opensourceleg.com/cubemars-tmotor-control-method/)をご覧ください。
 
+## セットアップ（uv推奨）
+
+このリポジトリでは、依存関係の正本を `pyproject.toml` で管理します。
+`requirements.txt` は互換用途でのみ利用し、通常運用では直接編集しません。
+
+1. uv のインストール（未導入の場合）
+```bash
+pip install uv
+```
+
+2. プロジェクトルートで仮想環境作成と同期
+```bash
+uv venv
+uv sync
+```
+
+3. 開発依存関係（ruff を含む）も入れる場合
+```bash
+uv sync --group dev
+```
+
+4. `requirements.txt` が必要な場面のみエクスポート
+```bash
+uv export --no-dev --format requirements-txt -o requirements.txt
+```
+
+補足:
+- 日常の依存関係追加・更新は `pyproject.toml` 側で行ってください。
+- `setup.cfg` は後方互換のため残していますが、パッケージ定義の正本ではありません。
+
 ## APIの使用方法
 いくつかのコード例については、このリポジトリの `demos` フォルダを参照してください。
 完全なAPIドキュメントについては、[ReadTheDocsの私たちのページ](https://tmotorcancontrol.readthedocs.io/en/latest/index.html)をご覧ください。

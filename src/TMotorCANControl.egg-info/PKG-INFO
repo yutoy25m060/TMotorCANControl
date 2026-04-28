@@ -2,18 +2,17 @@ Metadata-Version: 2.4
 Name: TMotorCANControl
 Version: 1.2.6
 Summary: A package to manage AK series T Motors over CAN
-Home-page: https://github.com/neurobionics/TMotorCANControl
 Author: Mitry Anderson, Vamsi Peddinti
-Author-email: mitryand@umich.edu
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
 Classifier: Operating System :: POSIX :: Linux
-Requires-Python: >=3.7
+Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 Requires-Dist: numpy
 Requires-Dist: NeuroLocoMiddleware
 Requires-Dist: python-can>=4.0.0
 Requires-Dist: pyserial>=3.5
+Requires-Dist: PyYAML
 
 # TMotorCANControl
 A Python API for controlling the AK-series Tmotor Actuators from CubeMars over the CAN bus.
