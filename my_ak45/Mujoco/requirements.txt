@@ -1,0 +1,52 @@
+# MuJoCo 関連リポジトリ向け統合 requirements
+# 複数の環境を 1 つの requirements.txt で管理するため、用途別に整理しています。
+
+# --- Core (必須) ---
+mujoco==3.3.4
+numpy
+scipy
+glfw
+PyOpenGL
+matplotlib
+
+# --- RL / Training ---
+gymnasium
+gymnasium-robotics
+stable-baselines3[extra]
+
+# --- MJX / JAX ---
+mujoco-mjx
+jax
+jaxlib
+etils[epath]
+trimesh
+absl-py
+
+# --- Visualization / UI ---
+PyQt6
+
+# --- Notebook / Utility ---
+pillow
+opencv-python
+moviepy
+
+# --- Optional: CUDA for JAX (NVIDIA GPU 利用時のみ) ---
+# jax-cuda12-plugin
+# jax-cuda12-pjrt
+
+# --- Optional: MuJoCo ドキュメント生成用 ---
+# Sphinx==7.4.7
+# furo==2024.8.6
+# sphinxcontrib-bibtex==2.6.3
+# sphinxcontrib-katex==0.9.4
+# sphinxcontrib-youtube==1.2.0
+# sphinx-copybutton==0.5.2
+# sphinx-favicon==1.0.1
+# sphinx-reredirects==0.1.1
+# sphinx-toolbox==3.8.2
+# nbsphinx==0.9.1
+# pandoc==1.1.0
+# pygments==2.19.2
+# jq==1.8.0
+# Jinja2==3.1.6
+# markupsafe==2.0.1
