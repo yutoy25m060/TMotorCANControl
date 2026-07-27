@@ -7,7 +7,7 @@ name = "TMotorCANControl"
 version = "1.2.6"
 description = "A package to manage AK series T Motors over CAN"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.8, <3.14"
 authors = [
     { name = "Mitry Anderson" },
     { name = "Vamsi Peddinti" },
