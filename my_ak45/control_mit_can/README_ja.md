@@ -232,6 +232,11 @@ motor.set_speed_radians_per_second(desired_speed)
 3. **緊急停止**: 異常時はすぐに電源を切断してください
 4. **負荷確認**: モーターに過大な負荷をかけないよう注意してください
 
+`exp_003_multi_motor.py` は `config.yaml` の `safety.max_position`/`max_velocity`/`max_torque`/`emergency_stop`
+を実際に読み込み、`experiments/safety_monitor.py` の `SafetyMonitor` でモーターごとに監視しています。
+いずれかのモーターがしきい値を超えると（`emergency_stop: true` の場合）自動的に全モーターへ
+`power_off()` を送って停止します。他のテンプレート・実験スクリプトはまだこの監視機構を使っていません。
+
 ## トラブルシューティング
 
 ### CAN 接続エラー

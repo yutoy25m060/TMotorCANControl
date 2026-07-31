@@ -7,6 +7,8 @@ CAN バス上で複数のモーターを管理する方法を学習します。
 1. config.yaml の motors: に設定した台数（何台でも可）のモーターを同時に制御
 2. 同期した動きを実装
 3. 各モーターの状態を個別に監視
+4. config.yaml の safety.* に基づき、位置/速度/トルクの上限監視と
+   1台でも異常なら全モーターを停止する緊急停止を実施
 
 注意: この実験には複数のモーターが必要です。
 モーター ID を config.yaml で適切に設定してください。
@@ -23,6 +25,7 @@ import numpy as np
 from TMotorCANControl.mit_can import TMotorManager_mit_can
 from NeuroLocoMiddleware.SoftRealtimeLoop import SoftRealtimeLoop
 from sync_logger import SyncMultiMotorLogger
+from safety_monitor import SafetyMonitor
 
 # 設定ファイルの読み込み
 with open("../config.yaml", "r", encoding="utf-8") as f:
@@ -52,6 +55,12 @@ LOG_VARS = config["logging"]["vars"]
 # 制御パラメータ
 K = config["control"]["impedance"]["K"]
 B = config["control"]["impedance"]["B"]
+
+# 安全制限パラメータ
+MAX_POSITION = config["safety"]["max_position"]
+MAX_VELOCITY = config["safety"]["max_velocity"]
+MAX_TORQUE = config["safety"]["max_torque"]
+EMERGENCY_STOP_ENABLED = config["safety"]["emergency_stop"]
 
 # 実験パラメータ
 AMPLITUDE = np.pi / 4  # 振幅 [rad] (45°)
@@ -93,6 +102,9 @@ with ExitStack() as stack:
     motors = [stack.enter_context(m) for m in motor_managers]
     motor_names = [m["name"] for m in MOTORS]
     sync_logger = stack.enter_context(SyncMultiMotorLogger(SYNC_LOG_FILE, motors, motor_names, LOG_VARS))
+    safety_monitor = SafetyMonitor(
+        motors, motor_names, MAX_POSITION, MAX_VELOCITY, MAX_TORQUE, emergency_stop=EMERGENCY_STOP_ENABLED
+    )
 
     # 位置ゼロ化
     print("全モーターの位置ゼロ化を実行中...")
@@ -114,6 +126,8 @@ with ExitStack() as stack:
     for t in loop:
         # 時間に基づく目標位置計算（正弦波軌跡）
         target_pos = AMPLITUDE * np.sin(2 * np.pi * FREQUENCY * t)
+        # config.yaml の safety.max_position を超えないようにクランプ（コマンド段階の安全弁）
+        target_pos = np.clip(target_pos, -MAX_POSITION, MAX_POSITION)
 
         # 全モーターに同じ目標位置を設定
         for motor in motors:
@@ -122,6 +136,15 @@ with ExitStack() as stack:
 
         # 全モーターの状態を共通タイムラインで1行にまとめて記録
         sync_logger.log(t)
+
+        # 安全制限チェック（1台でも超過したら全モーターを緊急停止）
+        exceeded, message = safety_monitor.check()
+        if exceeded:
+            if safety_monitor.emergency_stop_enabled:
+                safety_monitor.trigger_emergency_stop(message)
+                break
+            else:
+                print(f"警告（緊急停止は無効）: {message}")
 
         # 制御情報表示（200msごと）
         if loop.count % 20 == 0:
