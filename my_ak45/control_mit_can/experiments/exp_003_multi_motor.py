@@ -4,7 +4,7 @@
 CAN バス上で複数のモーターを管理する方法を学習します。
 
 実験内容:
-1. 2つのモーターを同時に制御
+1. config.yaml の motors: に設定した台数（何台でも可）のモーターを同時に制御
 2. 同期した動きを実装
 3. 各モーターの状態を個別に監視
 
@@ -17,6 +17,7 @@ python exp_003_multi_motor.py
 """
 
 import time
+from contextlib import ExitStack
 import yaml
 import numpy as np
 from TMotorCANControl.mit_can import TMotorManager_mit_can
@@ -84,15 +85,15 @@ motor_managers = [
     for i, motor_config in enumerate(MOTORS)
 ]
 
-# コンテキストマネージャとして使用（2モーターのみ対応）
-if len(motor_managers) != 2:
-    print(f"エラー: このスクリプトは2つのモーターのみ対応しています。現在 {len(motor_managers)} 個設定されています。")
+# コンテキストマネージャとして使用（config.yaml の motors: に設定した台数分、動的に開閉する）
+if not motor_managers:
+    print("エラー: config.yaml の motors: にモーターが1台も設定されていません。")
     exit(1)
 
-# with ブロックが電源オン/オフとログファイルの後始末を保証するため、
+# ExitStack が全モーターの電源オン/オフとログファイルの後始末を保証するため、
 # 手動での __exit__ 呼び出しは不要（二重電源オフになるため行わない）
-with motor_managers[0], motor_managers[1]:
-    motors = motor_managers
+with ExitStack() as stack:
+    motors = [stack.enter_context(m) for m in motor_managers]
     motor_names = [m["name"] for m in MOTORS]
 
     # 位置ゼロ化
