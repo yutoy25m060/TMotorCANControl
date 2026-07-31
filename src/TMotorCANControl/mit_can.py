@@ -2,16 +2,12 @@ import can
 import time
 import csv
 import traceback
+import os
 from collections import namedtuple
 from enum import Enum
 from math import isfinite
 import numpy as np
 import warnings
-
-import can
-import os
-from collections import namedtuple
-from math import isfinite
 
 # このライブラリで制御可能な各モーター固有のパラメータ辞書
 # 閾値は cubemars.com のモーターデータシートに基づいています

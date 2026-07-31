@@ -49,11 +49,6 @@ print("=" * 50)
 with TMotorManager_mit_can(
     motor_type=MOTOR_TYPE, motor_ID=MOTOR_ID, max_mosfett_temp=MAX_TEMP, CSV_file=LOG_FILE, log_vars=LOG_VARS
 ) as motor:
-    # 接続確認
-    if not motor.check_can_connection():
-        print("エラー: CAN 接続に失敗しました。")
-        exit(1)
-
     # 位置ゼロ化
     print("位置ゼロ化を実行中...")
     motor.set_zero_position()

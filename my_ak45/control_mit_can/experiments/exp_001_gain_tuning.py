@@ -8,8 +8,9 @@
 2. 振動の有無、整定時間、定常偏差を評価
 3. 最適なゲインを決定
 
-実行方法:
-python experiments/exp_001_gain_tuning.py
+実行方法（config.yaml / logs/ が親ディレクトリにあるため、experiments/ に移動してから実行）:
+cd experiments
+python exp_001_gain_tuning.py
 """
 
 import time
@@ -62,11 +63,6 @@ for i, gain_set in enumerate(GAIN_SETS):
     with TMotorManager_mit_can(
         motor_type=MOTOR_TYPE, motor_ID=MOTOR_ID, max_mosfett_temp=MAX_TEMP, CSV_file=LOG_FILE, log_vars=LOG_VARS
     ) as motor:
-        # 接続確認
-        if not motor.check_can_connection():
-            print("エラー: CAN 接続に失敗しました。")
-            continue
-
         # 位置ゼロ化
         motor.set_zero_position()
         time.sleep(1.5)

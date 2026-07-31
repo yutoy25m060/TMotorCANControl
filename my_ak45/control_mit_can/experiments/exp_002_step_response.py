@@ -8,8 +8,9 @@
 2. 立ち上がり時間、整定時間、オーバーシュートを測定
 3. 振動特性を分析
 
-実行方法:
-python experiments/exp_002_step_response.py
+実行方法（config.yaml / logs/ が親ディレクトリにあるため、experiments/ に移動してから実行）:
+cd experiments
+python exp_002_step_response.py
 """
 
 import time
@@ -54,11 +55,6 @@ print("=" * 50)
 with TMotorManager_mit_can(
     motor_type=MOTOR_TYPE, motor_ID=MOTOR_ID, max_mosfett_temp=MAX_TEMP, CSV_file=LOG_FILE, log_vars=LOG_VARS
 ) as motor:
-    # 接続確認
-    if not motor.check_can_connection():
-        print("エラー: CAN 接続に失敗しました。")
-        exit(1)
-
     # 位置ゼロ化
     print("位置ゼロ化を実行中...")
     motor.set_zero_position()
@@ -93,7 +89,6 @@ with TMotorManager_mit_can(
         # 応答データ収集
         current_time = t  # SoftRealtimeLoop の時間を使用
         current_pos = motor.get_output_angle_radians()
-        current_vel = motor.get_output_velocity_radians_per_second()
         error = TARGET_POSITION - current_pos
 
         # 最大・最小位置追跡

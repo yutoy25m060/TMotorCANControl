@@ -2,17 +2,12 @@ import can
 import time
 import csv
 import traceback
+import os
 from collections import namedtuple
 from enum import Enum
 from math import isfinite
 import numpy as np
 import warnings
-
-import can
-import os
-from collections import namedtuple
-from math import isfinite
-import numpy as np
 
 # Control mode contain {0,1,2,3,4,5,6,7} Seven eigenvalues correspond to seven control modes
 # respectively
@@ -601,15 +596,10 @@ class TMotorManager_servo_can():
             max_mosfett_temp: temperature of the mosfett above which to throw an error, in Celsius
             CSV_file: A CSV file to output log info to. If None, no log will be recorded.
             log_vars: The variables to log as a python list. The full list of possibilities is
-                - "output_angle"
-                - "output_velocity"
-                - "output_acceleration"
-                - "current"
-                - "output_torque"
-                - "motor_angle"
-                - "motor_velocity"
-                - "motor_acceleration"
-                - "motor_torque"
+                - "motor_position"
+                - "motor_speed"
+                - "motor_current"
+                - "motor_temperature"
 
         モーターマネージャを設定します。この方法ではデバイスは電源が入らないことに注意してください！
         モーターを制御する前に、主にwithブロックを使用して__enter__を呼び出す必要があります。
@@ -620,15 +610,10 @@ class TMotorManager_servo_can():
             max_mosfett_temp: エラーを発生させるMOSFETの閾値温度（摂氏）
             CSV_file: ログ情報を出力するCSVファイル。Noneの場合、ログは記録されません。
             log_vars: ログ記録対象変数（Pythonリスト形式）。可能な変数一覧：
-                - 「output_angle」
-                - 「output_velocity」
-                - 「出力加速度」
-                - 「電流」
-                - 「出力トルク」
-                - 「モーター角度」
-                - 「モーター速度」
-                - 「モーター加速度」
-                - 「モータートルク」
+                - 「motor_position」（モーター角度）
+                - 「motor_speed」（モーター速度）
+                - 「motor_current」（電流）
+                - 「motor_temperature」（温度）
         """
         self.type = motor_type
         self.ID = motor_ID

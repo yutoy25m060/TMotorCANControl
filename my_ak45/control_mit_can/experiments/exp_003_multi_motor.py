@@ -11,8 +11,9 @@ CAN バス上で複数のモーターを管理する方法を学習します。
 注意: この実験には複数のモーターが必要です。
 モーター ID を config.yaml で適切に設定してください。
 
-実行方法:
-python experiments/exp_003_multi_motor.py
+実行方法（config.yaml / logs/ が親ディレクトリにあるため、experiments/ に移動してから実行）:
+cd experiments
+python exp_003_multi_motor.py
 """
 
 import time
@@ -93,12 +94,6 @@ if len(motor_managers) != 2:
 with motor_managers[0], motor_managers[1]:
     motors = motor_managers
     motor_names = [m["name"] for m in MOTORS]
-
-    # 接続確認
-    for i, motor in enumerate(motors):
-        if not motor.check_can_connection():
-            print(f"エラー: {motor_names[i]} の CAN 接続に失敗しました。")
-            exit(1)
 
     # 位置ゼロ化
     print("全モーターの位置ゼロ化を実行中...")

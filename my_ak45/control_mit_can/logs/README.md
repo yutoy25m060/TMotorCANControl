@@ -4,23 +4,31 @@
 
 ## ログファイル命名規則
 
-`exp{実験番号}_{実験名}_{タイムスタンプ}.csv`
+命名パターンは実験スクリプトごとに異なります：
+
+- `0_template_basic.py`: `basic_control_{タイムスタンプ}.csv`
+- `1_template_impedance.py`: `impedance_control_{タイムスタンプ}.csv`
+- `2_template_current.py`: `current_control_{タイムスタンプ}.csv`
+- `exp_001_gain_tuning.py`: `exp001_gain_{連番}_{ゲインセット名}_{タイムスタンプ}.csv`（ゲインセットごとに1ファイル）
+- `exp_002_step_response.py`: `exp002_step_response_{タイムスタンプ}.csv`
+- `exp_003_multi_motor.py`: `exp003_{モーター名}_{タイムスタンプ}.csv`（**モーターごとに1ファイル**、2モーター構成なら計2ファイル）
+- `exp_004_trajectory.py`: `exp004_trajectory_{タイムスタンプ}.csv`
 
 例:
-- `exp001_gain_tuning_1703123456.csv`
 - `exp002_step_response_1703123567.csv`
-- `exp003_multi_motor_1703123678.csv`
+- `exp003_motor1_1703123678.csv`
+- `exp003_motor2_1703123678.csv`
 - `exp004_trajectory_1703123789.csv`
 
 ## ログ変数
 
-各ログファイルには以下の変数が含まれます：
+CSV の1列目は経過時間 `pi_time` [秒] で、それ以降の列は `config.yaml` の `logging.vars` で指定した変数です（デフォルトは以下）：
 
+- `pi_time`: モーター制御開始からの経過時間 [秒]
 - `output_angle`: 出力角度 [rad]
 - `output_velocity`: 出力速度 [rad/s]
 - `output_torque`: 出力トルク [Nm]
 - `mosfet_temperature`: MOSFET 温度 [℃]
-- `timestamp`: タイムスタンプ [秒]
 
 ## データ分析
 

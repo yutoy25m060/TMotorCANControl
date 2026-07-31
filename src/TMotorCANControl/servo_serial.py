@@ -324,6 +324,8 @@ def parse_packet(packet):
     """
     if len(packet) > 4:
         header = packet[0]
+        if header != 0x02:
+            return None
         DL = packet[1]
         data = packet[2:2+DL]
         crc = buffer_get_int16(packet[2+DL:DL+4], 0)

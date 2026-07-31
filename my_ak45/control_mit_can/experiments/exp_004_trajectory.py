@@ -8,8 +8,9 @@
 2. 速度・加速度の連続性を考慮
 3. 追従誤差の分析
 
-実行方法:
-python experiments/exp_004_trajectory.py
+実行方法（config.yaml / logs/ が親ディレクトリにあるため、experiments/ に移動してから実行）:
+cd experiments
+python exp_004_trajectory.py
 """
 
 import time
@@ -80,11 +81,6 @@ def calculate_trajectory_velocity(t, amplitude, period, dt=0.01):
 with TMotorManager_mit_can(
     motor_type=MOTOR_TYPE, motor_ID=MOTOR_ID, max_mosfett_temp=MAX_TEMP, CSV_file=LOG_FILE, log_vars=LOG_VARS
 ) as motor:
-    # 接続確認
-    if not motor.check_can_connection():
-        print("エラー: CAN 接続に失敗しました。")
-        exit(1)
-
     # 位置ゼロ化
     print("位置ゼロ化を実行中...")
     motor.set_zero_position()
@@ -102,7 +98,6 @@ with TMotorManager_mit_can(
     for t in loop:
         # 軌跡生成
         desired_pos = generate_triangle_trajectory(t, AMPLITUDE, PERIOD)
-        desired_vel = calculate_trajectory_velocity(t, AMPLITUDE, PERIOD)
 
         # モーター制御
         motor.update()
