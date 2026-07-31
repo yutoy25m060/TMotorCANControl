@@ -22,6 +22,7 @@ import yaml
 import numpy as np
 from TMotorCANControl.mit_can import TMotorManager_mit_can
 from NeuroLocoMiddleware.SoftRealtimeLoop import SoftRealtimeLoop
+from sync_logger import SyncMultiMotorLogger
 
 # 設定ファイルの読み込み
 with open("../config.yaml", "r", encoding="utf-8") as f:
@@ -57,12 +58,9 @@ AMPLITUDE = np.pi / 4  # 振幅 [rad] (45°)
 FREQUENCY = 0.5  # 周波数 [Hz]
 RUNTIME_SECONDS = 20  # 実験時間 [秒]
 
-# ログファイル名（動的生成）
+# ログファイル名（全モーターを共通タイムラインで1ファイルに記録する）
 timestamp = int(time.time())
-log_files = []
-for motor in MOTORS:
-    log_file = f"../logs/exp003_{motor['name'].lower()}_{timestamp}.csv"
-    log_files.append(log_file)
+SYNC_LOG_FILE = f"../logs/exp003_multi_motor_sync_{timestamp}.csv"
 
 print(f"=== 実験 003: 複数モーター制御 ===")
 print(f"制御モーター数: {len(MOTORS)}")
@@ -70,19 +68,18 @@ for motor in MOTORS:
     print(f"  - {motor['name']}: {motor['type']} (ID: {motor['id']})")
 print(f"制御パラメータ: K={K}, B={B}")
 print(f"軌跡: 振幅 {AMPLITUDE:.3f} rad, 周波数 {FREQUENCY} Hz")
-print(f"ログ保存: {', '.join(log_files)}")
+print(f"ログ保存: {SYNC_LOG_FILE}")
 print("=" * 50)
 
-# モーター制御（動的生成）
+# モーター制御（動的生成、CSVは同期ロガーでまとめて記録するため個別ログは無効化）
 motor_managers = [
     TMotorManager_mit_can(
         motor_type=motor_config["type"],
         motor_ID=motor_config["id"],
         max_mosfett_temp=motor_config.get("max_temp", 50),
-        CSV_file=log_files[i],
-        log_vars=LOG_VARS,
+        CSV_file=None,
     )
-    for i, motor_config in enumerate(MOTORS)
+    for motor_config in MOTORS
 ]
 
 # コンテキストマネージャとして使用（config.yaml の motors: に設定した台数分、動的に開閉する）
@@ -95,6 +92,7 @@ if not motor_managers:
 with ExitStack() as stack:
     motors = [stack.enter_context(m) for m in motor_managers]
     motor_names = [m["name"] for m in MOTORS]
+    sync_logger = stack.enter_context(SyncMultiMotorLogger(SYNC_LOG_FILE, motors, motor_names, LOG_VARS))
 
     # 位置ゼロ化
     print("全モーターの位置ゼロ化を実行中...")
@@ -122,6 +120,9 @@ with ExitStack() as stack:
             motor.update()
             motor.set_output_angle_radians(target_pos)
 
+        # 全モーターの状態を共通タイムラインで1行にまとめて記録
+        sync_logger.log(t)
+
         # 制御情報表示（200msごと）
         if loop.count % 20 == 0:
             print(f"経過時間: {t:.1f} 秒 | 目標位置: {target_pos:.3f} rad")
@@ -137,5 +138,5 @@ with ExitStack() as stack:
     total_time = t
     print(f"実行時間: {total_time:.2f} 秒")
 
-print(f"ログ保存完了: {', '.join(log_files)}")
+print(f"ログ保存完了: {SYNC_LOG_FILE}")
 print("実験 003 完了")
