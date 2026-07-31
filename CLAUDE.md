@@ -119,3 +119,14 @@ that table.
   surrounding language/style when editing nearby docstrings rather than mixing languages within one docstring.
 - If public API or examples change, update `README.md`, `README.ja.md`, and `docs/source/` together.
 - This targets headless Raspberry Pi/Linux CAN and serial setups — don't introduce GUI dependencies.
+
+## Change log rule (important)
+
+After completing a feature addition, bug fix, or refactoring, write a change-log entry at
+`.ai/logs/YYYY-MM-DD_XX_<slug>_YY.md`, following the format defined in
+[`.claude/rules/change-log-format.md`](.claude/rules/change-log-format.md). Check
+[`.ai/logs/`](.ai/logs/) for past entries to follow as examples.
+
+Required sections: leading metadata (date/time, target files, change type) / design decisions and rationale
+(alternatives considered, why they were rejected, trade-offs) / unresolved and known issues / test status
+(checklist).
