@@ -127,9 +127,9 @@ with TMotorManager_mit_can(
     print(f"最終位置: {final_position:.3f} rad")
     print(f"定常状態誤差: {steady_state_error:.3f} rad")
     if overshoot_detected:
-        print(".3f")
+        print(f"オーバーシュート量: {overshoot_amount:.3f} rad")
     if settled_time:
-        print(".3f")
+        print(f"整定時間: {settled_time:.3f} 秒")
     else:
         print("安定せず")
 

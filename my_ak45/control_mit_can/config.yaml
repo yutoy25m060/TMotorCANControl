@@ -40,6 +40,7 @@ control:
   current:
     Kp: 0.1        # 比例ゲイン
     Ki: 0.01       # 積分ゲイン
+    limit: 5.0     # 電流制限 [A]
 
 # ログ設定
 logging:

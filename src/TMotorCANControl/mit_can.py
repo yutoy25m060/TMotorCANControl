@@ -586,6 +586,7 @@ class TMotorManager_mit_can:
                 - "motor_velocity"
                 - "motor_acceleration"
                 - "motor_torque"
+                - "mosfet_temperature"
         """
         self.type = motor_type
         self.ID = motor_ID
@@ -632,6 +633,7 @@ class TMotorManager_mit_can:
             "motor_velocity": self.get_motor_velocity_radians_per_second,
             "motor_acceleration": self.get_motor_acceleration_radians_per_second_squared,
             "motor_torque": self.get_motor_torque_newton_meters,
+            "mosfet_temperature": self.get_temperature_celsius,
         }
 
         self._canman = CAN_Manager()
