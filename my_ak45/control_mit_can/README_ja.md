@@ -21,7 +21,8 @@ my_ak45_control/
 │   ├── exp_001_gain_tuning.py     # ゲイン調整実験
 │   ├── exp_002_step_response.py   # ステップ応答実験
 │   ├── exp_003_multi_motor.py     # 多モーター制御実験
-│   └── exp_004_trajectory.py      # 軌跡追従実験
+│   ├── exp_004_trajectory.py      # 軌跡追従実験
+│   └── exp_005_sysid_excitation.py # システム同定用 multi-sine 励振実験
 ├── logs/                    # 実験ログ
 │   └── README.md           # ログ分析ガイド
 └── README_ja.md            # このファイル
@@ -125,6 +126,9 @@ python exp_003_multi_motor.py
 
 # 軌跡追従実験
 python exp_004_trajectory.py
+
+# システム同定用 multi-sine 励振実験
+python exp_005_sysid_excitation.py
 ```
 
 ## リアルタイム制御 (NeuroLocoMiddleware 統合)
@@ -231,6 +235,27 @@ motor.set_output_torque_newton_meters(desired_torque)
 motor.set_speed_radians_per_second(desired_speed)
 ```
 
+### 5. システム同定用励振信号（sysid excitation）
+
+MuJoCo sysid toolbox 用に、純トルク指令（kp=0, kd=0）で multi-sine 励振信号を送ります。
+`set_current_gains()` の引数は実際には使われないダミー引数（`mit_can.py` の docstring 参照）で、
+呼び出すと電流制御モードに入るだけです。このモードでは位置・速度・Kp・Kd が常に 0 で CAN フレームに
+エンコードされるため、位置・速度フィードバックによる復元力を持たない開ループのトルク指令になります
+（他の制御モードと異なり、目標位置や目標速度への収束を保証しません）。
+
+**使用例:**
+```python
+motor.set_current_gains()  # kp/ki/ff/spoof はダミー引数
+motor.set_output_torque_newton_meters(desired_torque)  # desired_torque は multi-sine 励振式で計算
+```
+
+**実験例:**
+- `exp_005_sysid_excitation.py`: multi-sine 励振信号によるログ取得
+
+詳しい励振式・パラメータ選定の考え方は
+[`my_ak45/Mujoco/docs_syid/Mujoco_システム識別（SysID_モータ実機MuJoCo）について.md`](../Mujoco/docs_syid/Mujoco_システム識別（SysID_モータ実機MuJoCo）について.md)
+を参照してください。
+
 ## 安全上の注意
 
 1. **温度監視**: MOSFET 温度が 50℃ を超えないよう監視してください
@@ -242,6 +267,11 @@ motor.set_speed_radians_per_second(desired_speed)
 を実際に読み込み、`lib/safety_monitor.py` の `SafetyMonitor` でモーターごとに監視しています。
 いずれかのモーターがしきい値を超えると（`emergency_stop: true` の場合）自動的に全モーターへ
 `power_off()` を送って停止します。他のテンプレート・実験スクリプトはまだこの監視機構を使っていません。
+
+`exp_005_sysid_excitation.py` も `SafetyMonitor` を使用しています。この実験は位置・速度フィードバック
+による復元力を持たない開ループのトルク指令であるため、実測値ベースの `SafetyMonitor` によるしきい値
+超過時の緊急停止に加えて、指令トルク自体も `safety.max_torque` でクランプする2層の保護を行っています。
+それでも初回実行時は目視監視のもとで行ってください。
 
 ## トラブルシューティング
 

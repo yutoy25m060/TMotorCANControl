@@ -67,6 +67,17 @@ experiment:
     period: 4.0      # 周期 [秒]
     duration: 20.0   # 持続時間 [秒]
 
+  # システム同定用 multi-sine 励振信号（純トルク指令、kp=0/kd=0）
+  # 参照: my_ak45/Mujoco/docs_syid/Mujoco_システム識別（SysID_モータ実機MuJoCo）について.md セクション2-3
+  sysid_excitation:
+    base_freq: 4.0    # 基準周波数 [Hz] (RS02実験のsweet spot再現)
+    amplitude: 1.5    # 基準振幅 [Nm]（Kt_actualが暫定値のため、単純比例換算値 3.8-5.6Nm より
+                       #                大幅に抑えた初期値。理論最大瞬時トルクは amplitude*1.9=2.85Nm）
+    duration: 10.0    # 記録時間 [秒]（参照技術と同じ10秒/10,000サンプル）
+    dt: 0.001         # サンプリング周期 [秒] (1kHz。本リポジトリでの実機検証実績なし。
+                       #                       ジッタが問題になる場合は 0.002 等に緩めること）
+    report: true      # SoftRealtimeLoopのタイミングレポート（初回実機実行時のジッタ確認のため有効）
+
 # CAN 設定
 can:
   interface: "can0"  # CAN インターフェース
