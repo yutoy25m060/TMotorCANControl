@@ -9,20 +9,14 @@
 3. 制御ループで update() を呼び出し
 """
 
-import time
-import yaml
 import numpy as np
-from TMotorCANControl.mit_can import TMotorManager_mit_can
-from NeuroLocoMiddleware.SoftRealtimeLoop import SoftRealtimeLoop
+from lib.config_loader import load_config
+from lib.logging_utils import make_log_path, make_realtime_loop
+from lib.motor_setup import build_motor_manager, get_motor_config, zero_position
 
 # 設定ファイルの読み込み
-with open("config.yaml", "r", encoding="utf-8") as f:
-    config = yaml.safe_load(f)
-
-# 設定の展開
-MOTOR_TYPE = config["motor"]["type"]
-MOTOR_ID = config["motor"]["id"]
-MAX_TEMP = config["motor"]["max_temp"]
+config = load_config()
+motor_config = get_motor_config(config)
 LOG_VARS = config["logging"]["vars"]
 
 # インピーダンス制御パラメータ
@@ -34,11 +28,10 @@ TARGET_POSITION = np.pi / 2  # 目標位置 [rad] (90度)
 RUNTIME_SECONDS = 15  # 実験時間 [秒]
 
 # ログファイル名
-timestamp = int(time.time())
-LOG_FILE = f"logs/impedance_control_{timestamp}.csv"
+LOG_FILE = make_log_path("impedance_control")
 
 print(f"=== AK45-36 インピーダンス制御テンプレート ===")
-print(f"モーター: {MOTOR_TYPE} (ID: {MOTOR_ID})")
+print(f"モーター: {motor_config.type} (ID: {motor_config.id})")
 print(f"剛性 K: {K} Nm/rad")
 print(f"減衰 B: {B} Nm/(rad/s)")
 print(f"目標位置: {TARGET_POSITION:.3f} rad ({np.degrees(TARGET_POSITION):.1f}°)")
@@ -46,21 +39,16 @@ print(f"ログ保存: {LOG_FILE}")
 print("=" * 50)
 
 # モーター制御
-with TMotorManager_mit_can(
-    motor_type=MOTOR_TYPE, motor_ID=MOTOR_ID, max_mosfett_temp=MAX_TEMP, CSV_file=LOG_FILE, log_vars=LOG_VARS
-) as motor:
+with build_motor_manager(motor_config, csv_file=LOG_FILE, log_vars=LOG_VARS) as motor:
     # 位置ゼロ化
-    print("位置ゼロ化を実行中...")
-    motor.set_zero_position()
-    time.sleep(1.5)
-    print("ゼロ化完了")
+    zero_position(motor)
 
     # インピーダンス制御モード設定
     motor.set_impedance_gains_real_unit(K=K, B=B)
 
     # メイン制御ループ（NeuroLocoMiddleware使用）
     print("インピーダンス制御開始...")
-    loop = SoftRealtimeLoop(dt=0.01, report=True, fade=0)  # 100Hz制御
+    loop = make_realtime_loop()  # 100Hz制御
 
     for t in loop:
         # 状態更新

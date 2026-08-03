@@ -10,6 +10,12 @@ my_ak45_control/
 ├── 0_template_basic.py      # 基本制御テンプレート
 ├── 1_template_impedance.py  # インピーダンス制御テンプレート
 ├── 2_template_current.py    # 電流制御テンプレート
+├── lib/                     # テンプレート・実験スクリプトの共通コード
+│   ├── config_loader.py    # config.yaml の読み込み
+│   ├── motor_setup.py      # モーター初期化・ゼロ化（単一/複数モーター）
+│   ├── logging_utils.py    # ログファイル命名・制御ループ生成
+│   ├── sync_logger.py      # 複数モーターの同期ロギング（SyncMultiMotorLogger）
+│   └── safety_monitor.py   # 複数モーターの安全監視・緊急停止（SafetyMonitor）
 ├── config.yaml              # 設定ファイル
 ├── experiments/             # 実験スクリプト
 │   ├── exp_001_gain_tuning.py     # ゲイン調整実験
@@ -233,7 +239,7 @@ motor.set_speed_radians_per_second(desired_speed)
 4. **負荷確認**: モーターに過大な負荷をかけないよう注意してください
 
 `exp_003_multi_motor.py` は `config.yaml` の `safety.max_position`/`max_velocity`/`max_torque`/`emergency_stop`
-を実際に読み込み、`experiments/safety_monitor.py` の `SafetyMonitor` でモーターごとに監視しています。
+を実際に読み込み、`lib/safety_monitor.py` の `SafetyMonitor` でモーターごとに監視しています。
 いずれかのモーターがしきい値を超えると（`emergency_stop: true` の場合）自動的に全モーターへ
 `power_off()` を送って停止します。他のテンプレート・実験スクリプトはまだこの監視機構を使っていません。
 

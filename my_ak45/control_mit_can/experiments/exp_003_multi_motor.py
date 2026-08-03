@@ -18,18 +18,21 @@ cd experiments
 python exp_003_multi_motor.py
 """
 
-import time
+import sys
 from contextlib import ExitStack
-import yaml
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 import numpy as np
-from TMotorCANControl.mit_can import TMotorManager_mit_can
-from NeuroLocoMiddleware.SoftRealtimeLoop import SoftRealtimeLoop
-from sync_logger import SyncMultiMotorLogger
-from safety_monitor import SafetyMonitor
+from lib.config_loader import load_config
+from lib.logging_utils import make_log_path, make_realtime_loop
+from lib.motor_setup import build_motor_managers, zero_positions
+from lib.safety_monitor import SafetyMonitor
+from lib.sync_logger import SyncMultiMotorLogger
 
 # 設定ファイルの読み込み
-with open("../config.yaml", "r", encoding="utf-8") as f:
-    config = yaml.safe_load(f)
+config = load_config()
 
 # 複数モーター設定
 MOTORS = config.get(
@@ -68,8 +71,7 @@ FREQUENCY = 0.5  # 周波数 [Hz]
 RUNTIME_SECONDS = 20  # 実験時間 [秒]
 
 # ログファイル名（全モーターを共通タイムラインで1ファイルに記録する）
-timestamp = int(time.time())
-SYNC_LOG_FILE = f"../logs/exp003_multi_motor_sync_{timestamp}.csv"
+SYNC_LOG_FILE = make_log_path("exp003_multi_motor_sync")
 
 print(f"=== 実験 003: 複数モーター制御 ===")
 print(f"制御モーター数: {len(MOTORS)}")
@@ -81,15 +83,7 @@ print(f"ログ保存: {SYNC_LOG_FILE}")
 print("=" * 50)
 
 # モーター制御（動的生成、CSVは同期ロガーでまとめて記録するため個別ログは無効化）
-motor_managers = [
-    TMotorManager_mit_can(
-        motor_type=motor_config["type"],
-        motor_ID=motor_config["id"],
-        max_mosfett_temp=motor_config.get("max_temp", 50),
-        CSV_file=None,
-    )
-    for motor_config in MOTORS
-]
+motor_managers = build_motor_managers(MOTORS)
 
 # コンテキストマネージャとして使用（config.yaml の motors: に設定した台数分、動的に開閉する）
 if not motor_managers:
@@ -107,12 +101,7 @@ with ExitStack() as stack:
     )
 
     # 位置ゼロ化
-    print("全モーターの位置ゼロ化を実行中...")
-    for i, motor in enumerate(motors):
-        print(f"  {motor_names[i]} ゼロ化中...")
-        motor.set_zero_position()
-    time.sleep(1.5)
-    print("全モーターゼロ化完了")
+    zero_positions(motors, motor_names)
 
     # 制御モード設定
     for i, motor in enumerate(motors):
@@ -121,7 +110,7 @@ with ExitStack() as stack:
 
     # メイン制御ループ
     print("同期制御開始...")
-    loop = SoftRealtimeLoop(dt=0.01, report=True, fade=0)  # 100Hz制御
+    loop = make_realtime_loop()  # 100Hz制御
 
     for t in loop:
         # 時間に基づく目標位置計算（正弦波軌跡）

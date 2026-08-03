@@ -13,20 +13,19 @@ cd experiments
 python exp_004_trajectory.py
 """
 
-import time
-import yaml
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 import numpy as np
-from TMotorCANControl.mit_can import TMotorManager_mit_can
-from NeuroLocoMiddleware.SoftRealtimeLoop import SoftRealtimeLoop
+from lib.config_loader import load_config
+from lib.logging_utils import make_log_path, make_realtime_loop
+from lib.motor_setup import build_motor_manager, get_motor_config, zero_position
 
 # 設定ファイルの読み込み
-with open("../config.yaml", "r", encoding="utf-8") as f:
-    config = yaml.safe_load(f)
-
-# 設定の展開
-MOTOR_TYPE = config["motor"]["type"]
-MOTOR_ID = config["motor"]["id"]
-MAX_TEMP = config["motor"]["max_temp"]
+config = load_config()
+motor_config = get_motor_config(config)
 LOG_VARS = config["logging"]["vars"]
 
 # 制御パラメータ
@@ -39,11 +38,10 @@ PERIOD = 4.0  # 周期 [秒]
 RUNTIME_SECONDS = 20  # 実験時間 [秒]
 
 # ログファイル名
-timestamp = int(time.time())
-LOG_FILE = f"../logs/exp004_trajectory_{timestamp}.csv"
+LOG_FILE = make_log_path("exp004_trajectory")
 
 print(f"=== 実験 004: 軌跡追従制御 ===")
-print(f"モーター: {MOTOR_TYPE} (ID: {MOTOR_ID})")
+print(f"モーター: {motor_config.type} (ID: {motor_config.id})")
 print(f"制御ゲイン: K={K} Nm/rad, B={B} Nm/(rad/s)")
 print(f"軌跡: 三角波, 振幅={AMPLITUDE:.3f} rad, 周期={PERIOD} 秒")
 print(f"ログ保存: {LOG_FILE}")
@@ -78,21 +76,16 @@ def calculate_trajectory_velocity(t, amplitude, period, dt=0.01):
 
 
 # モーター制御
-with TMotorManager_mit_can(
-    motor_type=MOTOR_TYPE, motor_ID=MOTOR_ID, max_mosfett_temp=MAX_TEMP, CSV_file=LOG_FILE, log_vars=LOG_VARS
-) as motor:
+with build_motor_manager(motor_config, csv_file=LOG_FILE, log_vars=LOG_VARS) as motor:
     # 位置ゼロ化
-    print("位置ゼロ化を実行中...")
-    motor.set_zero_position()
-    time.sleep(1.5)
-    print("ゼロ化完了")
+    zero_position(motor)
 
     # インピーダンス制御設定
     motor.set_impedance_gains_real_unit(K=K, B=B)
 
     # メイン制御ループ
     print("軌跡追従開始...")
-    loop = SoftRealtimeLoop(dt=0.01, report=True, fade=0)  # 100Hz制御
+    loop = make_realtime_loop()  # 100Hz制御
     max_tracking_error = 0.0
 
     for t in loop:

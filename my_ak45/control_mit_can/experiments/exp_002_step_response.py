@@ -13,20 +13,20 @@ cd experiments
 python exp_002_step_response.py
 """
 
+import sys
 import time
-import yaml
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 import numpy as np
-from TMotorCANControl.mit_can import TMotorManager_mit_can
-from NeuroLocoMiddleware.SoftRealtimeLoop import SoftRealtimeLoop
+from lib.config_loader import load_config
+from lib.logging_utils import make_log_path, make_realtime_loop
+from lib.motor_setup import build_motor_manager, get_motor_config, zero_position
 
 # 設定ファイルの読み込み
-with open("../config.yaml", "r", encoding="utf-8") as f:
-    config = yaml.safe_load(f)
-
-# 設定の展開
-MOTOR_TYPE = config["motor"]["type"]
-MOTOR_ID = config["motor"]["id"]
-MAX_TEMP = config["motor"]["max_temp"]
+config = load_config()
+motor_config = get_motor_config(config)
 LOG_VARS = config["logging"]["vars"]
 
 # 制御パラメータ（config.yaml から読み込み）
@@ -40,11 +40,10 @@ STEP_TIME = 10.0  # ステップ持続時間 [秒]
 SETTLE_THRESHOLD = 0.01  # 安定判定閾値 [rad]
 
 # ログファイル名
-timestamp = int(time.time())
-LOG_FILE = f"../logs/exp002_step_response_{timestamp}.csv"
+LOG_FILE = make_log_path("exp002_step_response")
 
 print(f"=== 実験 002: ステップ応答特性評価 ===")
-print(f"モーター: {MOTOR_TYPE} (ID: {MOTOR_ID})")
+print(f"モーター: {motor_config.type} (ID: {motor_config.id})")
 print(f"制御ゲイン: K={K} Nm/rad, B={B} Nm/(rad/s)")
 print(f"ステップ: {INITIAL_POSITION:.3f} → {TARGET_POSITION:.3f} rad")
 print(f"安定判定閾値: {SETTLE_THRESHOLD:.3f} rad")
@@ -52,21 +51,16 @@ print(f"ログ保存: {LOG_FILE}")
 print("=" * 50)
 
 # モーター制御
-with TMotorManager_mit_can(
-    motor_type=MOTOR_TYPE, motor_ID=MOTOR_ID, max_mosfett_temp=MAX_TEMP, CSV_file=LOG_FILE, log_vars=LOG_VARS
-) as motor:
+with build_motor_manager(motor_config, csv_file=LOG_FILE, log_vars=LOG_VARS) as motor:
     # 位置ゼロ化
-    print("位置ゼロ化を実行中...")
-    motor.set_zero_position()
-    time.sleep(1.5)
-    print("ゼロ化完了")
+    zero_position(motor)
 
     # インピーダンス制御設定
     motor.set_impedance_gains_real_unit(K=K, B=B)
 
     # 初期位置で安定待ち
     print("初期位置安定待ち (3秒)...")
-    loop = SoftRealtimeLoop(dt=0.01, report=False, fade=0)
+    loop = make_realtime_loop(report=False)
     for t in loop:
         motor.update()
         motor.set_output_angle_radians(INITIAL_POSITION)
@@ -76,7 +70,7 @@ with TMotorManager_mit_can(
     # ステップ応答開始
     print("ステップ応答測定開始...")
     step_start_time = time.time()
-    loop = SoftRealtimeLoop(dt=0.01, report=False, fade=0)
+    loop = make_realtime_loop(report=False)
     settled_time = None
     max_position = INITIAL_POSITION
     min_position = INITIAL_POSITION
