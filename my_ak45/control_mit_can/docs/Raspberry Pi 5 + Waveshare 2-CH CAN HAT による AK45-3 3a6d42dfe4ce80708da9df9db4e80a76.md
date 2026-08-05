@@ -165,6 +165,17 @@ $$
 
 </aside>
 
+<aside>
+⚠️
+
+**未突合・実機未検証**: 上表の Velocity（±45.0 rad/s）・Torque（±18.0 Nm）は、実際にリポジトリで使われている
+`src/TMotorCANControl/mit_can.py` の `MIT_Params["AK45-36"]`（V=±30.0 rad/s、T=±32.0）と一致しない。
+さらに `demos/mit_can/demo_full_state_feedback_mit_can.py` には最大トルクとして 3.7 Nm という第3の値も残っている。
+どれが正しい仕様値かは未確定（一次資料である `docs_mit_can/tutorial.pdf` はパスワード保護で未確認）。
+実機に指令を送る際は、このページの数値ではなく `mit_can.py` に実装されている値を前提に動作する点に注意すること。
+
+</aside>
+
 ## 6. CAN 8バイトデータフレーム構成
 
 ```

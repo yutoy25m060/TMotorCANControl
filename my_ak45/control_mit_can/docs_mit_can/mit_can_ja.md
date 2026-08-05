@@ -141,6 +141,11 @@ error = motor.get_motor_error_code()            # 0 = 正常
 }
 ```
 
+> ⚠️ この値は `mit_can.py` の `MIT_Params` から転記したものであり、実行時に実際に使われる値はこのコード自体（唯一の情報源）。
+> `my_ak45/control_mit_can/docs/` 配下のNotionエクスポート仕様書や `demos/mit_can/demo_full_state_feedback_mit_can.py` には
+> `V_max`/`T_max` について異なる数値が残っており、まだ突合できていない。詳細は `mit_can.py` 側のコメントと
+> `.ai/logs/2026-08-05_01_ak45-36-spec-inconsistency-flags_01.md` を参照。
+
 ## CAN メッセージフォーマット
 
 MIT CAN プロトコルでは、8 バイトのメッセージで以下の情報を送受信します：

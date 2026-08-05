@@ -33,6 +33,10 @@ def full_state_feedback(dev):
         else:
             # チャープ信号に基づいてトルク指令を生成します。必要に応じてこの式を調整してください。
             des_τ = loop.fade*amp*chirp.next(t)*3/3.7 # 3.7はAK45-36の最大トルクです。必要に応じてこの値を変更してください。
+            # ⚠️ 未突合・実機未検証: この3.7という値は、src/TMotorCANControl/mit_can.py の
+            # MIT_Params["AK45-36"]["T_max"]=32.0 や my_ak45/control_mit_can/docs/ の仕様書に
+            # 記載の18.0とも一致しない。3箇所とも実測で検証されていないため、正確なスケーリングが
+            # 必要な場合はKt_actual/GEAR_RATIOから再計算するか、実機で確認すること。
             dev.torque = des_τ # トルク指令をモーターに送ります。
             dev.position = (np.pi/2)*int(t) # 位置を0とπ/2の間でステップさせます。必要に応じてこの式を調整してください。
 

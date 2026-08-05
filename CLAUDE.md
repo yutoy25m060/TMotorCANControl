@@ -34,6 +34,14 @@ environment management. Everything is hardware-in-the-loop: there is no simulato
   package.
 - `my_ak45/docs_mechanism/`, `my_ak45/quadruped_prep_ja.md` — Japanese-language design notes for a planned
   wire-driven quadruped built on this stack; advisory/planning documents only, nothing here is implemented yet.
+- `my_ak45/control_mit_can/docs/`, `my_ak45/control_mit_can/docs_mit_can/` — Notion-exported personal notes on
+  real-hardware bring-up (Raspberry Pi 5 + Waveshare 2-CH CAN HAT wiring/setup) and MIT-control theory/API usage.
+  **Not authoritative for AK45-36 numeric specs**: the velocity/torque limits quoted in these docs disagree with
+  `MIT_Params["AK45-36"]` in `mit_can.py` and with a comment in `demos/mit_can/demo_full_state_feedback_mit_can.py`
+  (three mutually inconsistent values for the torque limit alone) — see the `⚠️` notes left at each location and
+  `.ai/logs/2026-08-05_01_ak45-36-spec-inconsistency-flags_01.md`. None of these values have been validated against
+  real hardware or an authoritative datasheet; `docs_mit_can/tutorial.pdf` might be one but is password-protected
+  and unread. Don't copy numeric AK45-36 specs from these docs into code/config without cross-checking `mit_can.py`.
 - `docs/` — Sphinx docs. `docs/source/` is the source (autodoc against the three driver modules); `docs/build/`
   is the generated, committed HTML output — regenerate it rather than hand-editing.
 - `dist/` — a committed built wheel/sdist snapshot. `__pycache__/` at the repo root is also committed (legacy
