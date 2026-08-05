@@ -171,7 +171,25 @@ $$
 **未突合・実機未検証**: 上表の Velocity（±45.0 rad/s）・Torque（±18.0 Nm）は、実際にリポジトリで使われている
 `src/TMotorCANControl/mit_can.py` の `MIT_Params["AK45-36"]`（V=±30.0 rad/s、T=±32.0）と一致しない。
 さらに `demos/mit_can/demo_full_state_feedback_mit_can.py` には最大トルクとして 3.7 Nm という第3の値も残っている。
-どれが正しい仕様値かは未確定（一次資料である `docs_mit_can/tutorial.pdf` はパスワード保護で未確認）。
+どれが正しい仕様値かは依然未確定。当初は一次資料候補だった `docs_mit_can/tutorial.pdf` はパスワード保護を解除し
+`docs_mit_can/cubemars_tmotor_control_method.md` として判読可能になったが、内容は Open-Source Leg プロジェクトの
+汎用チュートリアル（2022年版、主対象は AK80-9）であり、AK45-36固有の仕様書ではなかった。そのMITモード欄の
+「18Nm（約16.6A q軸）」はAK80-9の値であり、本表の18.0 Nmはこの汎用値をAK45-36用に転記する際に混同した可能性がある
+（未確認の推測）。
+
+追記(2026-08-05): `docs_mit_can/ak45-36-firmware-and-parameters/` に実機からR-Linkでエクスポートした本物の
+ファームウェア設定（`45-36.McParams.McParams`）が追加された。これと突合すると、`mit_can.py` の `GEAR_RATIO=36.0`
+（firmwareの `p_pid_ang_div=36` と完全一致）と `T_max=32.0`（電流[A]。firmwareの `l_current_max=35A` に対する
+妥当な安全マージン）は実機裏付けが得られた。一方 `V_max=30.0` は算出根拠（ERPMからの計算式）が依然再現できず未解決。
+また本表の18.0はコード内のAK80-9自身の `T_max`（=18.0、これもA）と数値が一致しており、モータ種別を取り違えて
+転記された可能性が一段と濃厚になった。詳細は `.ai/logs/2026-08-05_03_ak45-36-firmware-export-crosscheck_01.md` を参照。
+
+追記(2026-08-05): `docs_mit_can/公式基本仕様.png` としてCubeMars公式の基本仕様表が追加された。ピークトルク24Nm・
+定格トルク8Nm・定格/ピーク電流2A/6.5A・無負荷回転速度52rpm(出力軸側、24V時、約5.45 rad/s)・トルク定数0.11Nm/A・
+極対数14・減速比36:1が記載されている。減速比とトルク定数（0.1206との差約9.6%）は `mit_can.py` の値と概ね
+整合する一方、本表のVelocity(±45.0)・Torque(±18.0)、`mit_can.py` の V_max(30.0)・T_max(32.0)は、いずれも
+公式の無負荷速度(約5.45 rad/s)・ピーク電流(6.5A)を大きく上回っており、実際に常用してよい値ではないと考えられる。
+詳細は `.ai/logs/2026-08-05_04_official-datasheet-crosscheck_01.md` を参照。
 実機に指令を送る際は、このページの数値ではなく `mit_can.py` に実装されている値を前提に動作する点に注意すること。
 
 </aside>

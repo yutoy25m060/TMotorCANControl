@@ -37,6 +37,10 @@ def full_state_feedback(dev):
             # MIT_Params["AK45-36"]["T_max"]=32.0 や my_ak45/control_mit_can/docs/ の仕様書に
             # 記載の18.0とも一致しない。3箇所とも実測で検証されていないため、正確なスケーリングが
             # 必要な場合はKt_actual/GEAR_RATIOから再計算するか、実機で確認すること。
+            # 追記(2026-08-05): T_max(32A) * Kt_TMotor(0.1206) ≈ 3.86 Nm となり、この3.7に近い
+            # （ギア前・モーター側トルクの計算式と推測されるが未検証）。ただし出力軸側(×GEAR_RATIO=36)の
+            # トルクではないため、「AK45-36の最大トルク」という説明はギア比を考慮していない可能性がある。
+            # 詳細は .ai/logs/2026-08-05_03_ak45-36-firmware-export-crosscheck_01.md 参照。
             dev.torque = des_τ # トルク指令をモーターに送ります。
             dev.position = (np.pi/2)*int(t) # 位置を0とπ/2の間でステップさせます。必要に応じてこの式を調整してください。
 

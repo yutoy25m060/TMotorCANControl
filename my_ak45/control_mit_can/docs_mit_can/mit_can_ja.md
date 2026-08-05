@@ -145,6 +145,16 @@ error = motor.get_motor_error_code()            # 0 = 正常
 > `my_ak45/control_mit_can/docs/` 配下のNotionエクスポート仕様書や `demos/mit_can/demo_full_state_feedback_mit_can.py` には
 > `V_max`/`T_max` について異なる数値が残っており、まだ突合できていない。詳細は `mit_can.py` 側のコメントと
 > `.ai/logs/2026-08-05_01_ak45-36-spec-inconsistency-flags_01.md` を参照。
+>
+> 追記(2026-08-05): `docs_mit_can/ak45-36-firmware-and-parameters/` に実機R-Linkエクスポートの生ファームウェア設定が
+> 追加され、`GEAR_RATIO=36.0`・`T_max=32.0`（A）は実機値との突合が取れた一方、`Kt_TMotor`/`Kt_actual=0.1206` は
+> firmwareの `foc_current_kp`（電流制御ループの比例ゲイン、トルク定数とは物理的に別物）そのものだったと判明した。
+> `V_max=30.0` の算出根拠は依然不明。詳細は `.ai/logs/2026-08-05_03_ak45-36-firmware-export-crosscheck_01.md` を参照。
+>
+> 追記(2026-08-05): `docs_mit_can/公式基本仕様.png`（CubeMars公式基本仕様表）で `GEAR_RATIO=36.0` が確定し、
+> `Kt_TMotor=0.1206` も公式値0.11 Nm/Aの1割以内と判明した。一方 `V_max=30.0`・`T_max=32.0` は、公式の無負荷
+> 回転速度(約5.45 rad/s、出力軸側)・ピーク電流(6.5A)を大きく上回っており、MITプロトコルのエンコード範囲ではあっても
+> 実運用で常用してよい値ではないと考えられる。詳細は `.ai/logs/2026-08-05_04_official-datasheet-crosscheck_01.md` を参照。
 
 ## CAN メッセージフォーマット
 
