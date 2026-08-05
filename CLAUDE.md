@@ -22,9 +22,18 @@ environment management. Everything is hardware-in-the-loop: there is no simulato
 - `my_ak45/control_mit_can/` — a personal AK45-36 experimentation workspace built on top of the package: numbered
   templates (`0_template_basic.py`, `1_template_impedance.py`, `2_template_current.py`) meant to be copied into
   `experiments/exp_NNN_description.py`, driven by a shared `config.yaml`, logging CSVs to `logs/` (gitignored).
-  See `my_ak45/control_mit_can/README_ja.md` for the workflow.
+  Common code shared by templates and experiment scripts lives in `lib/`: `config_loader.py` (resolves
+  `config.yaml` relative to the module file, not `cwd`, so it works from either `control_mit_can/` or
+  `control_mit_can/experiments/`), `motor_setup.py` (single/multi-motor init), `logging_utils.py` (log path
+  naming, `SoftRealtimeLoop` control-loop setup), `sync_logger.py` (`SyncMultiMotorLogger`, records multiple
+  motors on one shared timeline/CSV — `TMotorManager_mit_can`'s own per-motor CSV logging has an independent
+  `pi_time` origin per motor, which doesn't line up across motors), and `safety_monitor.py` (`SafetyMonitor`,
+  cross-motor position/velocity/torque limit checks and `power_off()`-all emergency stop — not all
+  templates/experiments use it yet). See `my_ak45/control_mit_can/README_ja.md` for the full workflow.
 - `my_ak45/Mujoco/` — separate, early-stage system-identification work using MuJoCo; not wired into the main
   package.
+- `my_ak45/docs_mechanism/`, `my_ak45/quadruped_prep_ja.md` — Japanese-language design notes for a planned
+  wire-driven quadruped built on this stack; advisory/planning documents only, nothing here is implemented yet.
 - `docs/` — Sphinx docs. `docs/source/` is the source (autodoc against the three driver modules); `docs/build/`
   is the generated, committed HTML output — regenerate it rather than hand-editing.
 - `dist/` — a committed built wheel/sdist snapshot. `__pycache__/` at the repo root is also committed (legacy
