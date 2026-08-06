@@ -9,61 +9,46 @@ q軸電流を直接指令することで、トルクを精密に制御できま�
 3. 制御ループで update() を呼び出し
 """
 
-import time
-import yaml
 import numpy as np
-from TMotorCANControl.mit_can import TMotorManager_mit_can
-from NeuroLocoMiddleware.SoftRealtimeLoop import SoftRealtimeLoop
+from lib.config_loader import load_config
+from lib.logging_utils import make_log_path, make_realtime_loop
+from lib.motor_setup import build_motor_manager, get_motor_config, zero_position
 
 # 設定ファイルの読み込み
-with open("config.yaml", "r", encoding="utf-8") as f:
-    config = yaml.safe_load(f)
-
-# 設定の展開
-MOTOR_TYPE = config["motor"]["type"]
-MOTOR_ID = config["motor"]["id"]
-MAX_TEMP = config["motor"]["max_temp"]
+config = load_config()
+motor_config = get_motor_config(config)
 LOG_VARS = config["logging"]["vars"]
 
 # 電流制御パラメータ
 CURRENT_LIMIT = config["control"]["current"]["limit"]  # 電流制限 [A]
+CURRENT_KP = config["control"]["current"]["Kp"]  # 比例ゲイン
+CURRENT_KI = config["control"]["current"]["Ki"]  # 積分ゲイン
 
 # 実験パラメータ
 TARGET_CURRENT = 2.0  # 目標電流 [A]
 RUNTIME_SECONDS = 10  # 実験時間 [秒]
 
 # ログファイル名
-timestamp = int(time.time())
-LOG_FILE = f"logs/current_control_{timestamp}.csv"
+LOG_FILE = make_log_path("current_control")
 
 print(f"=== AK45-36 電流制御テンプレート ===")
-print(f"モーター: {MOTOR_TYPE} (ID: {MOTOR_ID})")
+print(f"モーター: {motor_config.type} (ID: {motor_config.id})")
 print(f"電流制限: {CURRENT_LIMIT} A")
 print(f"目標電流: {TARGET_CURRENT} A")
 print(f"ログ保存: {LOG_FILE}")
 print("=" * 40)
 
 # モーター制御
-with TMotorManager_mit_can(
-    motor_type=MOTOR_TYPE, motor_ID=MOTOR_ID, max_mosfett_temp=MAX_TEMP, CSV_file=LOG_FILE, log_vars=LOG_VARS
-) as motor:
-    # 接続確認
-    if not motor.check_can_connection():
-        print("エラー: CAN 接続に失敗しました。")
-        exit(1)
-
+with build_motor_manager(motor_config, csv_file=LOG_FILE, log_vars=LOG_VARS) as motor:
     # 位置ゼロ化
-    print("位置ゼロ化を実行中...")
-    motor.set_zero_position()
-    time.sleep(1.5)
-    print("ゼロ化完了")
+    zero_position(motor)
 
     # 電流制御モード設定
-    motor.set_current_gains()
+    motor.set_current_gains(kp=CURRENT_KP, ki=CURRENT_KI)
 
     # メイン制御ループ（NeuroLocoMiddleware使用）
     print("電流制御開始...")
-    loop = SoftRealtimeLoop(dt=0.01, report=True, fade=0)  # 100Hz制御
+    loop = make_realtime_loop()  # 100Hz制御
 
     for t in loop:
         # 状態更新

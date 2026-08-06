@@ -22,9 +22,46 @@ environment management. Everything is hardware-in-the-loop: there is no simulato
 - `my_ak45/control_mit_can/` — a personal AK45-36 experimentation workspace built on top of the package: numbered
   templates (`0_template_basic.py`, `1_template_impedance.py`, `2_template_current.py`) meant to be copied into
   `experiments/exp_NNN_description.py`, driven by a shared `config.yaml`, logging CSVs to `logs/` (gitignored).
-  See `my_ak45/control_mit_can/README_ja.md` for the workflow.
+  Common code shared by templates and experiment scripts lives in `lib/`: `config_loader.py` (resolves
+  `config.yaml` relative to the module file, not `cwd`, so it works from either `control_mit_can/` or
+  `control_mit_can/experiments/`), `motor_setup.py` (single/multi-motor init), `logging_utils.py` (log path
+  naming, `SoftRealtimeLoop` control-loop setup), `sync_logger.py` (`SyncMultiMotorLogger`, records multiple
+  motors on one shared timeline/CSV — `TMotorManager_mit_can`'s own per-motor CSV logging has an independent
+  `pi_time` origin per motor, which doesn't line up across motors), and `safety_monitor.py` (`SafetyMonitor`,
+  cross-motor position/velocity/torque limit checks and `power_off()`-all emergency stop — not all
+  templates/experiments use it yet). See `my_ak45/control_mit_can/README_ja.md` for the full workflow.
 - `my_ak45/Mujoco/` — separate, early-stage system-identification work using MuJoCo; not wired into the main
   package.
+- `my_ak45/docs_mechanism/`, `my_ak45/quadruped_prep_ja.md` — Japanese-language design notes for a planned
+  wire-driven quadruped built on this stack; advisory/planning documents only, nothing here is implemented yet.
+- `my_ak45/control_mit_can/docs/`, `my_ak45/control_mit_can/docs_mit_can/` — Notion-exported personal notes on
+  real-hardware bring-up (Raspberry Pi 5 + Waveshare 2-CH CAN HAT wiring/setup) and MIT-control theory/API usage.
+  **Not authoritative for AK45-36 numeric specs**: the velocity/torque limits quoted in these docs disagree with
+  `MIT_Params["AK45-36"]` in `mit_can.py` and with a comment in `demos/mit_can/demo_full_state_feedback_mit_can.py`
+  (three mutually inconsistent values for the torque limit alone) — see the `⚠️` notes left at each location and
+  `.ai/logs/2026-08-05_01_ak45-36-spec-inconsistency-flags_01.md`. None of these values have been validated against
+  real hardware. `docs_mit_can/tutorial.pdf` (previously password-protected) has since been transcribed to
+  `docs_mit_can/cubemars_tmotor_control_method.md` — it turns out to be a generic Open-Source Leg project tutorial
+  (2022, primarily AK80-9) rather than an AK45-36 datasheet, so it does **not** resolve the V_max/T_max
+  inconsistency; see `.ai/logs/2026-08-05_02_tutorial-pdf-transcribed-inconclusive_01.md`. `docs_mit_can/` also
+  has `ak40-2410-1a-a1-drive-installation-instructions.md`, an official CubeMars driver-board manual — unclear
+  whether the AK40-2410 board it documents is the exact board in the AK45-36, and its power-input pin table
+  states polarity (`Pin1=-`/red, `Pin2=+`/black) opposite the usual red=+/black=- convention; verify by multimeter
+  before wiring, don't trust the color coding. `docs_mit_can/ak45-36-firmware-and-parameters/` holds an actual
+  R-Link export from a real AK45-36 unit (`45-36.McParams.McParams`/`45-36.AppParams.AppParams`, plus firmware
+  binaries) — the closest thing to ground truth found so far. Cross-checking it against `MIT_Params["AK45-36"]`
+  confirmed `GEAR_RATIO=36.0` and `T_max=32.0` (amps, not Nm) but showed `Kt_TMotor`/`Kt_actual=0.1206` is actually
+  the firmware's `foc_current_kp` (a current-loop PI gain, not a torque constant) copied in by mistake; `V_max=30.0`
+  still doesn't reproduce from the firmware's ERPM/pole/gear values. `docs_mit_can/公式基本仕様.png` is an actual
+  CubeMars official spec sheet for the AK45-36 (peak torque 24 Nm, rated torque 8 Nm, rated/peak current 2A/6.5A,
+  no-load speed 52 rpm output-side ≈ 5.45 rad/s, Kt 0.11 Nm/A, 14 pole pairs, 36:1 gearing) — it confirms
+  `GEAR_RATIO=36.0` and puts `Kt_TMotor=0.1206` within ~10% of the real value, but shows `V_max=30.0`/Notion's
+  `45.0` rad/s and `T_max=32.0`A are both far above the motor's real rated/no-load envelope (protocol encoding
+  range, not a safe operating limit — don't command near these in real experiments). This prompted lowering
+  `my_ak45/control_mit_can/config.yaml`'s `safety.max_velocity` from 10.0 to 6.0 rad/s. See
+  `.ai/logs/2026-08-05_03_ak45-36-firmware-export-crosscheck_01.md` and
+  `.ai/logs/2026-08-05_04_official-datasheet-crosscheck_01.md`. Don't copy numeric AK45-36 specs from these
+  docs into code/config without cross-checking `mit_can.py`.
 - `docs/` — Sphinx docs. `docs/source/` is the source (autodoc against the three driver modules); `docs/build/`
   is the generated, committed HTML output — regenerate it rather than hand-editing.
 - `dist/` — a committed built wheel/sdist snapshot. `__pycache__/` at the repo root is also committed (legacy

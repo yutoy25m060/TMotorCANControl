@@ -4,23 +4,37 @@
 
 ## ログファイル命名規則
 
-`exp{実験番号}_{実験名}_{タイムスタンプ}.csv`
+命名パターンは実験スクリプトごとに異なります：
+
+- `0_template_basic.py`: `basic_control_{タイムスタンプ}.csv`
+- `1_template_impedance.py`: `impedance_control_{タイムスタンプ}.csv`
+- `2_template_current.py`: `current_control_{タイムスタンプ}.csv`
+- `exp_001_gain_tuning.py`: `exp001_gain_{連番}_{ゲインセット名}_{タイムスタンプ}.csv`（ゲインセットごとに1ファイル）
+- `exp_002_step_response.py`: `exp002_step_response_{タイムスタンプ}.csv`
+- `exp_003_multi_motor.py`: `exp003_multi_motor_sync_{タイムスタンプ}.csv`（**全モーターを共通タイムラインで1ファイルに記録**。`sync_logger.py` の `SyncMultiMotorLogger` を使用）
+- `exp_004_trajectory.py`: `exp004_trajectory_{タイムスタンプ}.csv`
 
 例:
-- `exp001_gain_tuning_1703123456.csv`
 - `exp002_step_response_1703123567.csv`
-- `exp003_multi_motor_1703123678.csv`
+- `exp003_multi_motor_sync_1703123678.csv`
 - `exp004_trajectory_1703123789.csv`
 
 ## ログ変数
 
-各ログファイルには以下の変数が含まれます：
+`exp_003_multi_motor.py` 以外（0/1/2番テンプレート、`exp_001`/`exp_002`/`exp_004`）は
+`TMotorManager_mit_can` が直接CSVを書き出す方式で、CSV の1列目は経過時間 `pi_time` [秒]、
+それ以降の列は `config.yaml` の `logging.vars` で指定した変数です（デフォルトは以下）：
 
+- `pi_time`: モーター制御開始からの経過時間 [秒]
 - `output_angle`: 出力角度 [rad]
 - `output_velocity`: 出力速度 [rad/s]
 - `output_torque`: 出力トルク [Nm]
 - `mosfet_temperature`: MOSFET 温度 [℃]
-- `timestamp`: タイムスタンプ [秒]
+
+`exp_003_multi_motor.py` は `sync_logger.py` の `SyncMultiMotorLogger` を使って
+**複数モーターを1つの共通タイムラインで記録**します。1列目は制御ループ共通の経過時間 `t` [秒]、
+それ以降は `{モーター名}_{変数名}`（例: `motor1_output_angle`, `motor2_output_torque`）という
+列名で、モーターの台数分・`logging.vars` の変数分だけ列が並びます。
 
 ## データ分析
 

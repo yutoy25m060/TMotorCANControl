@@ -1348,7 +1348,7 @@ try:
     raw_df = pd.read_csv(CSV_FILE_PATH, header=0, index_col=0, parse_dates=True)
     print(f"  '{CSV_FILE_PATH}' からデータを読み込みました。")
     print("  データプレビュー:")
-    display(raw_df.head())
+    print(raw_df.head())
 
     # タイムスタンプの抽出
     # CSVのインデックスが時間情報を持つ場合、それを`times`として使用します。
