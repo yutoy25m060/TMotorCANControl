@@ -17,3 +17,8 @@ env/
 .DS_Store
 
 demos_logs/
+
+# Ignore build artifacts
+*.egg-info/
+dist/
+build/
