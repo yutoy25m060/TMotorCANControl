@@ -17,8 +17,9 @@ def test_moment_arm_equals_positive_wire_length_derivative():
     tau_wire = -T・l_moment_arm（wire_statics.py の前提）と整合することの根拠。
     この恒等式は theta_included が theta_joint に対して傾き+1の線形関数である
     ことのみから従うため、wire_kinematics.pulley_polar_from_xy() の
-    (x, z)→theta_pulley 変換に既知の疑義があっても影響を受けない
-    （pulley側の角度が theta_joint に依存しないため）。
+    (x, z)→theta_pulley 変換の絶対的な正しさ（別途 test_wire_kinematics.py::
+    test_l_wire_matches_direct_euclidean_distance_to_pulley_xy で確認済み）とは
+    独立に成立する（pulley側の角度が theta_joint に依存しないため）。
     """
     rng = np.random.default_rng(2)
     h = 1e-6
