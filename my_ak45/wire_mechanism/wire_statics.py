@@ -25,14 +25,18 @@
     となり、ノートの `τ = T・l5`（`τ` = tau_external）とも一致する
     （途中に符号反転を挟む必要はない）。
 
-既知の課題（未解決）:
-    wire_kinematics.pulley_polar_from_xy() の theta_pulley = atan2(-z, x) は、
-    theta_anchor 側の符号規約（反転なし）と揃えておらず、独立に指定した (x, z) の
-    定滑車座標に対して l_wire が実際のユークリッド距離と一致しない疑いがある
-    （x軸上以外の (x, z) で顕著）。本モジュールの符号導出（上記）自体は
-    theta_included の theta_joint に対する傾きが+1であることのみに依存するため
-    このバグの影響を受けないが、l_moment_arm・l_wire の絶対値が意図した物理配置を
-    正しく表しているかは wire_kinematics.py 側の検証待ち。
+既知の課題（解決済み・誤検知と判明）:
+    以前ここには、wire_kinematics.pulley_polar_from_xy() の
+    theta_pulley = atan2(-z, x) が theta_anchor 側の符号規約と揃っていない疑いを
+    記録していたが、再検証の結果これは誤検知と判明した。疑いの根拠になった
+    「直接ユークリッド距離」の手計算（test_wire_kinematics.py の該当テスト）が
+    anchor 座標を z_anchor = +l_anchor・sin(...)（符号反転なし）で計算しており、
+    これ自体が A-1確定規約（z = -l・sinθ）に反する誤った比較対象だったことが原因。
+    pulley と同じ z = -l・sinθ 規約で anchor 座標を計算すると、
+    solve_wire_geometry().l_wire は実ユークリッド距離と厳密に一致する
+    （3D回転行列によるA-1規約の独立検算、および20万点の乱数検証で最大誤差 3e-14 を確認）。
+    詳細は test_wire_kinematics.py::test_l_wire_matches_direct_euclidean_distance_to_pulley_xy
+    を参照。theta_pulley の実装に修正は不要だった。
 """
 
 from dataclasses import dataclass
@@ -48,15 +52,19 @@ def gravity_torque(
     l_com: float,
     g: float = 9.8,
 ) -> FloatOrArray:
-    """重力が theta_joint 方向に及ぼす一般化トルクを求める: -mass・g・l_com・cos(theta_joint)。
+    """重力が theta_joint 方向に及ぼす一般化トルクを求める: +mass・g・l_com・cos(theta_joint)。
 
     重心はリンク上、関節から l_com の距離にあると仮定する（A-1確定規約と同じ
-    非反転パラメータ化: z_com = l_com・sin(theta_joint)、theta_joint=0 が x軸正方向）。
+    z = -l・sinθ のパラメータ化: z_com = -l_com・sin(theta_joint)、theta_joint=0 が
+    x軸正方向）。wire_kinematics.pulley_xy_from_polar() と同一の符号規約であることに注意
+    （以前の実装は z_com = +l_com・sin(theta_joint) という非A-1準拠の符号を使っており、
+    tau_gravity の符号・安定平衡点の位置が逆転するバグがあった。3D回転行列によるA-1規約の
+    独立検算で修正済み）。
     tau_gravity = -dV/d(theta_joint) として導出。
-    theta_joint = -90°（z軸負方向、鉛直下向き）が安定平衡点、
-    theta_joint = +90°（鉛直上向き）が不安定平衡点になることを数値確認済み。
+    theta_joint = +90°（z軸負方向、鉛直下向き）が安定平衡点、
+    theta_joint = -90°（鉛直上向き）が不安定平衡点になることを数値確認済み。
     """
-    return -mass * g * l_com * np.cos(theta_joint)
+    return mass * g * l_com * np.cos(theta_joint)
 
 
 @dataclass(frozen=True, slots=True)

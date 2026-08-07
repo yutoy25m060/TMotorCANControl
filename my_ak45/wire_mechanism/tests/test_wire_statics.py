@@ -46,7 +46,7 @@ def test_moment_arm_equals_positive_wire_length_derivative():
 
 @pytest.mark.parametrize(
     ("theta_deg", "expected_sign"),
-    [(-90, 0.0), (90, 0.0), (0, -1.0), (180, 1.0)],
+    [(-90, 0.0), (90, 0.0), (0, 1.0), (180, -1.0)],
 )
 def test_gravity_torque_equilibria_and_signs(theta_deg, expected_sign):
     theta = np.deg2rad(theta_deg)
@@ -58,13 +58,16 @@ def test_gravity_torque_equilibria_and_signs(theta_deg, expected_sign):
 
 
 def test_gravity_torque_matches_energy_derivative():
-    """tau_gravity = -dV/d(theta_joint)（V = mass*g*l_com*sin(theta_joint)）を有限差分で確認する。"""
+    """tau_gravity = -dV/d(theta_joint)（V = mass*g*z_com = -mass*g*l_com*sin(theta_joint)、
+
+    A-1確定規約の z_com = -l_com*sin(theta_joint) より）を有限差分で確認する。
+    """
     mass, l_com, g = 1.0, 0.3, 9.8
     h = 1e-6
     theta = np.linspace(-np.pi, np.pi, 200)
 
     def potential(th):
-        return mass * g * l_com * np.sin(th)
+        return -mass * g * l_com * np.sin(th)
 
     d_v = (potential(theta + h) - potential(theta - h)) / (2 * h)
     expected = -d_v
@@ -73,9 +76,12 @@ def test_gravity_torque_matches_energy_derivative():
 
 
 def test_downward_hang_is_stable_equilibrium():
-    """theta_joint=-90°(鉛直下向き)近傍で、変位方向と逆向きの復元トルクが働く(安定)ことを確認する。"""
+    """theta_joint=+90°(A-1規約でz軸負方向、鉛直下向き)近傍で、
+
+    変位方向と逆向きの復元トルクが働く(安定)ことを確認する。
+    """
     mass, l_com, g = 1.0, 0.3, 9.8
-    theta_eq = -np.pi / 2
+    theta_eq = np.pi / 2
     delta = np.deg2rad(5)
 
     tau_plus = ws.gravity_torque(theta_eq + delta, mass, l_com, g)

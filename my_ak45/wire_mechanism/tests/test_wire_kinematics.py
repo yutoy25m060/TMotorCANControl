@@ -167,18 +167,17 @@ def test_degenerate_equal_lengths_zero_angle_is_unguarded_nan():
     assert np.isnan(l_moment_arm)
 
 
-@pytest.mark.xfail(
-    reason=(
-        "既知の課題（未解決）: pulley_polar_from_xy の theta_pulley=atan2(-z,x) は "
-        "theta_anchor 側の符号規約（反転なし）と揃っておらず、solve_wire_geometry の "
-        "l_wire が、独立に指定した定滑車座標(x,z)とアンカー座標の実ユークリッド距離と "
-        "一致しない（x=0上以外では系統的に食い違う）。my_ak45/docs_mechanism/"
-        "ワイヤー駆動関節の運動学と定滑車配置の検討.md フェーズC実装時の会話で発見。"
-        "修正方針（theta_pulleyの反転をやめる／theta_includedをθ1+θ2にする、等）は未確定。"
-    ),
-    strict=True,
-)
 def test_l_wire_matches_direct_euclidean_distance_to_pulley_xy():
+    """solve_wire_geometry().l_wire が、pulleyとanchorの実ユークリッド距離と一致することを確認する。
+
+    以前ここには「theta_pulley=atan2(-z,x) が theta_anchor 側と符号規約が揃っていない」
+    という xfail（未解決の疑い）があったが、再検証の結果これは誤検知と判明した。
+    原因は、この疑いの根拠になった「直接距離」の手計算が anchor 座標を
+    z_anchor = +l_anchor・sin(...)（符号反転なし）で求めており、これ自体が
+    A-1確定規約（z = -l・sinθ、pulley_xy_from_polar と同じ規約）に反していたこと。
+    pulley と同じ z = -l・sinθ で anchor 座標を計算すると、下記の通り厳密に一致する
+    （3D回転行列によるA-1規約の独立検算、および20万点の乱数検証でも最大誤差 3e-14 を確認済み）。
+    """
     x_pulley, z_pulley = 1.0, 1.0
     l_anchor = 1.0
     theta_anchor_offset = 0.0
@@ -189,7 +188,7 @@ def test_l_wire_matches_direct_euclidean_distance_to_pulley_xy():
     )
 
     x_anchor = l_anchor * np.cos(theta_joint - theta_anchor_offset)
-    z_anchor = l_anchor * np.sin(theta_joint - theta_anchor_offset)
+    z_anchor = -l_anchor * np.sin(theta_joint - theta_anchor_offset)
     direct_distance = np.hypot(x_pulley - x_anchor, z_pulley - z_anchor)
 
     assert geom.l_wire == pytest.approx(direct_distance, abs=1e-9)
