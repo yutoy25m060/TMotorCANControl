@@ -33,6 +33,7 @@ where = ["src"]
 
 [dependency-groups]
 dev = [
+    "pytest>=8.3.5",
     "ruff>=0.15.1",
 ]
 
@@ -47,3 +48,7 @@ ignore = ["E501"]         # 1行の文字数制限(E501)は無視する
 
 [tool.ruff.format]
 quote-style = "double"    # 文字列はダブルクォート(")に統一
+
+[tool.pytest.ini_options]
+pythonpath = ["my_ak45"]
+testpaths = ["my_ak45/wire_mechanism/tests"]
