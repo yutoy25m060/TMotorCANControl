@@ -1200,13 +1200,13 @@ class TMotorManager_mit_can:
         return (
             self.device_info_string()
             + " | Position: "
-            + "{: 1f}".format(round(self.θ, 3))
+            + "{: 1f}".format(round(self.position, 3))
             + " rad | Velocity: "
-            + "{: 1f}".format(round(self.θd, 3))
+            + "{: 1f}".format(round(self.velocity, 3))
             + " rad/s | current: "
-            + "{: 1f}".format(round(self.i, 3))
+            + "{: 1f}".format(round(self.current_qaxis, 3))
             + " A | torque: "
-            + "{: 1f}".format(round(self.τ, 3))
+            + "{: 1f}".format(round(self.torque, 3))
             + " Nm"
         )
 
