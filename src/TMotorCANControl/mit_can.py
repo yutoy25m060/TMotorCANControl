@@ -356,6 +356,10 @@ class CAN_Manager(object):
             os.system("sudo /sbin/ip link set can0 down")
             # CAN インターフェースを起動（ビットレート 1Mbps）
             os.system("sudo /sbin/ip link set can0 up type can bitrate 1000000")
+            # down/up直後はCANコントローラ側のビットレート再ネゴシエーション・エラーカウンタの
+            # リセットが完了しておらず、直後に通信を試みると（特にスクリプト初回実行時に）
+            # check_can_connection()が失敗することがあったため、安定するまで少し待つ
+            time.sleep(0.3)
             # python-can の Bus オブジェクトを作成（SocketCAN ドライバを使用）
             cls._instance.bus = can.interface.Bus(channel="can0", bustype="socketcan")  # bustype='socketcan_native')
             # CAN バスからのメッセージをリスナーに分配する Notifier を作成
@@ -703,9 +707,23 @@ class TMotorManager_mit_can:
         self.power_on()
         self._send_command()
         self._entered = True
-        if not self.check_can_connection():
-            raise RuntimeError("Device not connected: " + str(self.device_info_string()))
-        return self
+
+        # 実機で「CAN通信を全く受けていない"冷えた"状態のモーターは、最初の制御モード開始
+        # コマンドへの応答が間に合わず1回目のcheck_can_connection()が失敗するが、2回目
+        # （モーターが一度コマンドを受けた後）は即座に成功する」という事象が確認された
+        # （.ai/logs/2026-08-11_07_can-interface-bringup-settle-delay_01.md、
+        # 2026-08-11_08_*参照）。そのため1回失敗しても即座にエラーとせず、間隔を空けて
+        # 数回まで再試行する（check_can_connection()自体が内部で電源投入コードを再送信する）。
+        MAX_CONNECTION_ATTEMPTS = 3
+        RETRY_DELAY_SECONDS = 0.5
+        for attempt in range(1, MAX_CONNECTION_ATTEMPTS + 1):
+            if self.check_can_connection():
+                return self
+            if attempt < MAX_CONNECTION_ATTEMPTS:
+                print(f"  {self.device_info_string()}: 接続確認{attempt}回目失敗、再試行します...")
+                time.sleep(RETRY_DELAY_SECONDS)
+
+        raise RuntimeError("Device not connected: " + str(self.device_info_string()))
 
     def __exit__(self, etype, value, tb):
         """
