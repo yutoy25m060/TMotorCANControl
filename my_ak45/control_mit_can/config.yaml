@@ -17,11 +17,11 @@ motors:
     type: "AK45-36"     # モーター型番
     id: 2               # CAN ID
     max_temp: 50        # 最大温度 [℃]
+  - name: "motor3"      # モーター識別名
+    type: "AK45-36"     # モーター型番
+    id: 3               # CAN ID
+    max_temp: 50        # 最大温度 [℃]
   # 必要に応じて追加
-  # - name: "motor3"
-  #   type: "AK45-36"
-  #   id: 3
-  #   max_temp: 50
 
 # 制御パラメータ
 control:
