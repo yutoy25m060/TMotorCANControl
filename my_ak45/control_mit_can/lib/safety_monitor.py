@@ -1,12 +1,19 @@
 """複数モーターの安全上限を監視し、超過時に全モーターを緊急停止するモニター。
 
-TMotorManager_mit_can.update() はMOSFET温度チェックとMIT プロトコル生の範囲での
-ラップアラウンド処理は行うが、config.yaml で運用者が設定する位置/速度/トルクの
+TMotorManager_mit_can.update() は各モーター自身の max_temp（config.yaml の
+motor(s).max_temp から構築時に設定される、motor.max_temp 属性で参照可能）を超えると
+即座に RuntimeError を送出するが、config.yaml で運用者が設定する位置/速度/トルクの
 ソフトウェア上限や、複数モーター横断の緊急停止（1台の異常で全台を止める）は
 サポートしていない。ワイヤー駆動の脚機構は単体モーターより過張力・断線・詰まりの
 リスクが高く、かつ複数の脚が同時に動くため、1台の異常が転倒や他の脚への連鎖的な
 ダメージにつながりやすい。このモジュールはワークスペース層（my_ak45/）でその監視・
 緊急停止を提供する。
+
+check() は温度（motor.max_temp との比較）も監視対象に含む。ただし update() 自身が
+同一しきい値で先に RuntimeError を送出するため、通常の呼び出し順序（全モーターを
+update() した後で check() を呼ぶパターン）では、温度超過時に実際に効くのは
+update() 呼び出し側の try/except（exp_003_multi_motor.py・exp_005_sysid_excitation.py
+参照）であり、check() の温度分岐はその防御線がない呼び出し順序向けの保険的な位置づけ。
 """
 
 
@@ -49,6 +56,9 @@ class SafetyMonitor:
                 return True, f"{name}: 速度上限超過 ({vel:.3f} rad/s > {self.max_velocity} rad/s)"
             if abs(torque) > self.max_torque:
                 return True, f"{name}: トルク上限超過 ({torque:.3f} Nm > {self.max_torque} Nm)"
+            temp = motor.get_temperature_celsius()
+            if temp > motor.max_temp:
+                return True, f"{name}: 温度上限超過 ({temp:.1f}C > {motor.max_temp}C)"
         return False, None
 
     def trigger_emergency_stop(self, message):

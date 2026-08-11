@@ -2,25 +2,32 @@
 # AK45-36 モーター制御実験用
 
 # モーター設定（単一モーター用）
+# max_temp: 電源投入直後・能動指令なしのIDLE状態でもmosfet_temperatureが65〜75℃まで
+# 上昇する現象が確認されており（3台20分観測で頭打ちにならず、根本原因は未特定。
+# .ai/logs/2026-08-11_01_mit-can-str-attribute-fix_01.md,
+# 2026-08-11_02_temperature-decode-verification_01.md 参照）、旧来の50℃だと通常の
+# アイドル状態ですら安全停止してしまっていた。実機ファームウェアの
+# l_temp_motor_start=85℃（ディレーティング開始点）より十分低く、かつ観測された
+# アイドル時の上昇傾向にも実用上のマージンを持たせた75℃に変更（2026-08-11）。
 motor:
   type: "AK45-36"  # モーター型番
   id: 1            # CAN ID
-  max_temp: 50     # 最大温度 [℃]
+  max_temp: 75     # 最大温度 [℃]
 
 # 複数モーター設定（複数モーター制御時に使用）
 motors:
   - name: "motor1"      # モーター識別名
     type: "AK45-36"     # モーター型番
     id: 1               # CAN ID
-    max_temp: 50        # 最大温度 [℃]
+    max_temp: 75        # 最大温度 [℃]（根拠は上記motor.max_tempのコメント参照）
   - name: "motor2"      # モーター識別名
     type: "AK45-36"     # モーター型番
     id: 2               # CAN ID
-    max_temp: 50        # 最大温度 [℃]
+    max_temp: 75        # 最大温度 [℃]（根拠は上記motor.max_tempのコメント参照）
   - name: "motor3"      # モーター識別名
     type: "AK45-36"     # モーター型番
     id: 3               # CAN ID
-    max_temp: 50        # 最大温度 [℃]
+    max_temp: 75        # 最大温度 [℃]（根拠は上記motor.max_tempのコメント参照）
   # 必要に応じて追加
 
 # 制御パラメータ

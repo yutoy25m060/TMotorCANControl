@@ -119,9 +119,14 @@ with ExitStack() as stack:
         target_pos = np.clip(target_pos, -MAX_POSITION, MAX_POSITION)
 
         # 全モーターに同じ目標位置を設定
-        for motor in motors:
-            motor.update()
-            motor.set_output_angle_radians(target_pos)
+        try:
+            for motor in motors:
+                motor.update()  # 温度上限超過時はここでRuntimeErrorが送出される
+                motor.set_output_angle_radians(target_pos)
+        except RuntimeError as e:
+            # update()自身の温度チェックはモーター単位のため、無条件で全台を緊急停止する
+            safety_monitor.trigger_emergency_stop(str(e))
+            break
 
         # 全モーターの状態を共通タイムラインで1行にまとめて記録
         sync_logger.log(t)

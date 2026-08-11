@@ -134,7 +134,11 @@ with build_motor_manager(motor_config, csv_file=None, log_vars=LOG_VARS) as moto
         loop = make_realtime_loop(dt=DT, report=REPORT)
 
         for t in loop:
-            motor.update()
+            try:
+                motor.update()  # 温度上限超過時はここでRuntimeErrorが送出される
+            except RuntimeError as e:
+                safety_monitor.trigger_emergency_stop(str(e))
+                break
 
             # 励振トルクを計算し、コマンド段階の安全弁としてクランプする
             raw_torque = multi_sine_torque(t, AMPLITUDE, BASE_FREQ)
