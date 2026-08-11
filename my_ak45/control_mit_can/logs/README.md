@@ -19,9 +19,13 @@
 - `exp_002_step_response.py`: `logs/exp002_step_response_{タイムスタンプ}/log.csv`
 - `exp_003_multi_motor.py`: `logs/exp003_multi_motor_{タイムスタンプ}/sync_log.csv`（**全モーターを共通タイムラインで1ファイルに記録**。`sync_logger.py` の `SyncMultiMotorLogger` を使用）
 - `exp_004_trajectory.py`: `logs/exp004_trajectory_{タイムスタンプ}/log.csv`
-- `exp_005_sysid_excitation.py`: `logs/exp005_sysid_excitation_{タイムスタンプ}/log.csv`
 - `exp_006_thermal_baseline_check.py`: `logs/exp006_thermal_baseline_{タイムスタンプ}/log.csv`
 - `exp_007_thermal_baseline_multi.py`: `logs/exp007_thermal_baseline_multi_{タイムスタンプ}/sync_log.csv`
+
+`exp_005_sysid_excitation.py` は `my_ak45/Mujoco/data_collection/` に移動しており、出力先も
+このディレクトリではなく `my_ak45/Mujoco/data/raw/exp005_sysid_excitation_{タイムスタンプ}/` に
+変更されている（MuJoCo sysid の最適化を別PCで行うため、git 追跡対象の場所に直接保存する設計。
+詳細は [`my_ak45/Mujoco/docs_syid/AK45-36_sysid_作業手順.md`](../../Mujoco/docs_syid/AK45-36_sysid_作業手順.md) 参照）。
 
 例:
 - `logs/exp002_step_response_1703123567/log.csv`

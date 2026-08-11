@@ -7,7 +7,8 @@ multi-sine 励振信号を送り、応答（位置・速度・電流・トルク
     torque(t) = amp * (sin(2*pi*f*t) + 0.6*sin(2*pi*3.4*f*t) + 0.3*sin(2*pi*7.4*f*t))
 
 詳しい手法の解説は下記を参照してください:
-my_ak45/Mujoco/docs_syid/Mujoco_システム識別（SysID_モータ実機MuJoCo）について.md
+../docs_syid/Mujoco_システム識別（SysID_モータ実機MuJoCo）について.md
+../docs_syid/AK45-36_sysid_作業手順.md
 
 注意: このスクリプトは本ワークスペース初の「開ループ」実験です。位置・速度フィードバックによる
 復元力を一切持たないため、target_pos に基づく通常のインピーダンス/位置制御実験と異なり、共振や
@@ -16,25 +17,25 @@ my_ak45/Mujoco/docs_syid/Mujoco_システム識別（SysID_モータ実機MuJoCo
 (2) 実測値ベースの SafetyMonitor による位置/速度/トルク超過時の緊急停止、
 の2層で保護しています。それでも初回実行時は目視監視のもとで行ってください。
 
-実行方法（config.yaml / logs/ が親ディレクトリにあるため、experiments/ に移動してから実行）:
-cd experiments
+モーター制御自体は my_ak45/control_mit_can/ の共通基盤（lib/・config.yaml）を再利用するため、
+実機（Raspberry Pi + CAN）上でのみ実行できます。一方、MuJoCo sysid のモデル最適化は別PC
+（Windows、GPU利用）で行う想定のため、出力データはこのスクリプトと同じ my_ak45/Mujoco/ 配下の
+data/raw/ に保存します（my_ak45/control_mit_can/logs/ とは異なり git 追跡対象）。
+
+実行方法:
 python exp_005_sysid_excitation.py
 """
 
 import csv
 import sys
+import time
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "control_mit_can"))
 
 import numpy as np
 from lib.config_loader import load_config
-from lib.logging_utils import (
-    console_log,
-    make_log_path,
-    make_realtime_loop,
-    make_run_dir,
-)
+from lib.logging_utils import console_log, make_realtime_loop
 from lib.motor_setup import build_motor_manager, get_motor_config, zero_position
 from lib.safety_monitor import SafetyMonitor
 
@@ -64,9 +65,14 @@ MAX_VELOCITY = config["safety"]["max_velocity"]
 MAX_TORQUE = config["safety"]["max_torque"]
 EMERGENCY_STOP_ENABLED = config["safety"]["emergency_stop"]
 
-# 実行フォルダ（logs/exp005_sysid_excitation_{timestamp}/）を作成し、CSV・コンソールログをまとめる
-RUN_DIR = make_run_dir("exp005_sysid_excitation")
-LOG_FILE = make_log_path(RUN_DIR, "log.csv")
+# 実行フォルダ（my_ak45/Mujoco/data/raw/exp005_sysid_excitation_{timestamp}/）を作成し、
+# CSV・コンソールログをまとめる。MuJoCo sysid の最適化処理は別PC（Windows、GPU利用）で行うため、
+# git 追跡対象外の my_ak45/control_mit_can/logs/ ではなく、git 追跡対象の my_ak45/Mujoco/data/raw/
+# に直接保存する（lib.logging_utils.make_run_dir() は control_mit_can/logs/ 固定のためここでは使わない）。
+DATA_DIR = Path(__file__).resolve().parent.parent / "data" / "raw"
+RUN_DIR = DATA_DIR / f"exp005_sysid_excitation_{int(time.time())}"
+RUN_DIR.mkdir(parents=True)
+LOG_FILE = str(RUN_DIR / "log.csv")
 
 
 def multi_sine_torque(t, amplitude, base_freq):

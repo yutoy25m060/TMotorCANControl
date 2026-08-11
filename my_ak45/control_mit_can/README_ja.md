@@ -21,8 +21,7 @@ my_ak45_control/
 │   ├── exp_001_gain_tuning.py     # ゲイン調整実験
 │   ├── exp_002_step_response.py   # ステップ応答実験
 │   ├── exp_003_multi_motor.py     # 多モーター制御実験
-│   ├── exp_004_trajectory.py      # 軌跡追従実験
-│   └── exp_005_sysid_excitation.py # システム同定用 multi-sine 励振実験
+│   └── exp_004_trajectory.py      # 軌跡追従実験
 ├── logs/                    # 実験ログ（実行ごとにサブフォルダが作られる）
 │   ├── README.md           # ログ分析ガイド
 │   └── {実験名}_{タイムスタンプ}/  # 1回の実行につき1フォルダ（CSV + コンソールログ）
@@ -132,10 +131,11 @@ python exp_003_multi_motor.py
 
 # 軌跡追従実験
 python exp_004_trajectory.py
-
-# システム同定用 multi-sine 励振実験
-python exp_005_sysid_excitation.py
 ```
+
+システム同定用 multi-sine 励振実験（`exp_005_sysid_excitation.py`）は
+[`my_ak45/Mujoco/data_collection/`](../Mujoco/data_collection/) に移動しました
+（詳細は下記「MuJoCo sysid との連携」参照）。
 
 ## リアルタイム制御 (NeuroLocoMiddleware 統合)
 
@@ -256,10 +256,16 @@ motor.set_output_torque_newton_meters(desired_torque)  # desired_torque は mult
 ```
 
 **実験例:**
-- `exp_005_sysid_excitation.py`: multi-sine 励振信号によるログ取得
+- [`my_ak45/Mujoco/data_collection/exp_005_sysid_excitation.py`](../Mujoco/data_collection/exp_005_sysid_excitation.py):
+  multi-sine 励振信号によるログ取得。MuJoCo sysid のモデル最適化を別PC（Windows、GPU利用）で行う
+  ため、このディレクトリ（`control_mit_can/experiments/`）ではなく `my_ak45/Mujoco/` 配下に置かれて
+  いる（本体の `lib/`・`config.yaml` は引き続きここのものを再利用する）。出力データも
+  `control_mit_can/logs/` ではなく git 追跡対象の `my_ak45/Mujoco/data/raw/` に直接保存される。
 
-詳しい励振式・パラメータ選定の考え方は
+詳しい励振式・パラメータ選定の考え方、Pi/Windows PC間の作業分担は
 [`my_ak45/Mujoco/docs_syid/Mujoco_システム識別（SysID_モータ実機MuJoCo）について.md`](../Mujoco/docs_syid/Mujoco_システム識別（SysID_モータ実機MuJoCo）について.md)
+と
+[`my_ak45/Mujoco/docs_syid/AK45-36_sysid_作業手順.md`](../Mujoco/docs_syid/AK45-36_sysid_作業手順.md)
 を参照してください。
 
 ## 安全上の注意
@@ -274,7 +280,7 @@ motor.set_output_torque_newton_meters(desired_torque)  # desired_torque は mult
 いずれかのモーターがしきい値を超えると（`emergency_stop: true` の場合）自動的に全モーターへ
 `power_off()` を送って停止します。他のテンプレート・実験スクリプトはまだこの監視機構を使っていません。
 
-`exp_005_sysid_excitation.py` も `SafetyMonitor` を使用しています。この実験は位置・速度フィードバック
+`my_ak45/Mujoco/data_collection/exp_005_sysid_excitation.py` も `SafetyMonitor` を使用しています。この実験は位置・速度フィードバック
 による復元力を持たない開ループのトルク指令であるため、実測値ベースの `SafetyMonitor` によるしきい値
 超過時の緊急停止に加えて、指令トルク自体も `safety.max_torque` でクランプする2層の保護を行っています。
 それでも初回実行時は目視監視のもとで行ってください。

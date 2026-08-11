@@ -12,8 +12,9 @@ motor(s).max_temp から構築時に設定される、motor.max_temp 属性で�
 check() は温度（motor.max_temp との比較）も監視対象に含む。ただし update() 自身が
 同一しきい値で先に RuntimeError を送出するため、通常の呼び出し順序（全モーターを
 update() した後で check() を呼ぶパターン）では、温度超過時に実際に効くのは
-update() 呼び出し側の try/except（exp_003_multi_motor.py・exp_005_sysid_excitation.py
-参照）であり、check() の温度分岐はその防御線がない呼び出し順序向けの保険的な位置づけ。
+update() 呼び出し側の try/except（exp_003_multi_motor.py・
+my_ak45/Mujoco/data_collection/exp_005_sysid_excitation.py 参照）であり、check() の
+温度分岐はその防御線がない呼び出し順序向けの保険的な位置づけ。
 """
 
 
