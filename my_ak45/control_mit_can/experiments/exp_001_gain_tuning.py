@@ -82,7 +82,7 @@ for i, gain_set in enumerate(GAIN_SETS):
             motor.set_output_angle_radians(TARGET_POSITION)
 
             # 進捗表示
-            if loop.count % 50 == 0:  # 500ms ごと
+            if loop.n % 50 == 0:  # 500ms ごと
                 current_pos = motor.get_output_angle_radians()
                 error = TARGET_POSITION - current_pos
                 print(f"経過時間: {t:.1f} 秒 | 現在位置: {current_pos:.3f} rad | 誤差: {error:.3f} rad")

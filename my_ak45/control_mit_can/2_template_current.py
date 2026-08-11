@@ -59,7 +59,7 @@ with build_motor_manager(motor_config, csv_file=LOG_FILE, log_vars=LOG_VARS) as 
         motor.set_motor_current_qaxis_amps(safe_current)
 
         # 制御情報表示（100msごと）
-        if loop.count % 10 == 0:
+        if loop.n % 10 == 0:
             current_current = motor.get_current_qaxis_amps()
             current_torque = motor.get_output_torque_newton_meters()
             current_pos = motor.get_output_angle_radians()

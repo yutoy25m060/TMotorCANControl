@@ -166,7 +166,7 @@ for t in loop:
     motor.set_output_angle_radians(desired_position)
 
     # 定期的な情報表示
-    if loop.count % 10 == 0:  # 100msごと
+    if loop.n % 10 == 0:  # 100msごと
         print(f"経過時間: {t:.1f} 秒")
 
     # 実験時間チェック

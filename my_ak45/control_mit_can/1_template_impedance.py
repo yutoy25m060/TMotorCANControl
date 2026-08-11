@@ -58,7 +58,7 @@ with build_motor_manager(motor_config, csv_file=LOG_FILE, log_vars=LOG_VARS) as 
         motor.set_output_angle_radians(TARGET_POSITION)
 
         # 制御情報表示（200msごと）
-        if loop.count % 20 == 0:
+        if loop.n % 20 == 0:
             current_pos = motor.get_output_angle_radians()
             current_vel = motor.get_output_velocity_radians_per_second()
             current_torque = motor.get_output_torque_newton_meters()

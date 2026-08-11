@@ -158,7 +158,7 @@ with build_motor_manager(motor_config, csv_file=None, log_vars=LOG_VARS) as moto
                     print(f"警告（緊急停止は無効）: {message}")
 
             # 進捗表示（約100msごと）
-            if loop.count % max(1, int(0.1 / DT)) == 0:
+            if loop.n % max(1, int(0.1 / DT)) == 0:
                 current_pos = motor.get_output_angle_radians()
                 current_vel = motor.get_output_velocity_radians_per_second()
                 current_torque = motor.get_output_torque_newton_meters()
@@ -176,7 +176,7 @@ with build_motor_manager(motor_config, csv_file=None, log_vars=LOG_VARS) as moto
 
         total_time = t
         expected_samples = int(DURATION / DT)
-        actual_samples = loop.count
+        actual_samples = loop.n
         print(f"実行時間: {total_time:.2f} 秒")
         print(f"サンプル数: 実測 {actual_samples} / 期待値 {expected_samples}")
 

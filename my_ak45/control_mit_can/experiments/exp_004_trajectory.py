@@ -102,7 +102,7 @@ with build_motor_manager(motor_config, csv_file=LOG_FILE, log_vars=LOG_VARS) as 
         max_tracking_error = max(max_tracking_error, tracking_error)
 
         # 制御情報表示（200msごと）
-        if loop.count % 20 == 0:
+        if loop.n % 20 == 0:
             current_vel = motor.get_output_velocity_radians_per_second()
             print(
                 f"経過時間: {t:.1f} 秒 | "

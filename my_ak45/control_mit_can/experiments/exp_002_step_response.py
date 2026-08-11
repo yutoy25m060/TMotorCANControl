@@ -100,7 +100,7 @@ with build_motor_manager(motor_config, csv_file=LOG_FILE, log_vars=LOG_VARS) as 
             print(f"オーバーシュート検出: {overshoot_amount:.3f} rad")
 
         # 進捗表示
-        if loop.count % 50 == 0:  # 500ms ごと
+        if loop.n % 50 == 0:  # 500ms ごと
             print(f"経過時間: {current_time:.1f} 秒 | 現在位置: {current_pos:.3f} rad | 誤差: {error:.3f} rad")
 
         if t >= STEP_TIME:

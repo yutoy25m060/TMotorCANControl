@@ -50,7 +50,7 @@ with build_motor_manager(motor_config, csv_file=LOG_FILE, log_vars=LOG_VARS) as 
         # motor.set_motor_current_qaxis_amps(2.0)  # 2A 電流指令
 
         # ループ情報表示（100msごと）
-        if loop.count % 10 == 0:  # 約 100ms 間隔
+        if loop.n % 10 == 0:  # 約 100ms 間隔
             print(f"経過時間: {t:.1f} 秒")
 
         # 実験時間チェック

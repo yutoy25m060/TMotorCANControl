@@ -50,6 +50,12 @@ MOTORS = config.get(
             "id": config["motor"]["id"] + 1,
             "max_temp": config["motor"]["max_temp"],
         },
+        {
+            "name": "Motor_3",
+            "type": config["motor"]["type"],
+            "id": config["motor"]["id"] + 2,
+            "max_temp": config["motor"]["max_temp"],
+        },
     ],
 )
 
@@ -141,7 +147,7 @@ with ExitStack() as stack:
                 print(f"警告（緊急停止は無効）: {message}")
 
         # 制御情報表示（200msごと）
-        if loop.count % 20 == 0:
+        if loop.n % 20 == 0:
             print(f"経過時間: {t:.1f} 秒 | 目標位置: {target_pos:.3f} rad")
             for i, motor in enumerate(motors):
                 pos = motor.get_output_angle_radians()
