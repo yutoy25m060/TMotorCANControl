@@ -60,10 +60,16 @@ def zero_position(motor, label=None, settle_time=1.5, verbose=True):
 
 
 def zero_positions(motors, labels, settle_time=1.5):
-    """複数モーターの位置ゼロ化をまとめて行う。"""
+    """複数モーターの位置ゼロ化を1台ずつ行う。
+
+    以前は全台へゼロ化コードを送ってからまとめて1回だけ settle_time 待つ実装だったが、
+    3台同時のゼロ化直後に実測位置がゼロになっていない（ゼロ化が完了しきっていない）事例が
+    実機で確認されたため、zero_position()（単数版）と同じく1台ごとに settle_time 待つ
+    方式に変更した。台数分だけ時間はかかるが、確実性を優先する。
+    """
     print("全モーターの位置ゼロ化を実行中...")
     for label, motor in zip(labels, motors):
         print(f"  {label} ゼロ化中...")
         motor.set_zero_position()
-    time.sleep(settle_time)
+        time.sleep(settle_time)
     print("全モーターゼロ化完了")

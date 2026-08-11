@@ -109,6 +109,21 @@ with ExitStack() as stack:
     # 位置ゼロ化
     zero_positions(motors, motor_names)
 
+    # ゼロ化直後の実位置を確認する診断出力・検証。
+    # ゼロ化が反映されず前回実行時の実位置を引きずったまま制御開始してしまう事例が実機で確認
+    # されたため、ゼロ化成功を前提にせず、大きな残留誤差があれば制御開始前に安全停止する。
+    ZERO_TOLERANCE = 0.3  # rad（約17°）。正常時のばらつき(0.09〜0.25 rad程度)は許容する
+    zero_failures = []
+    for name, motor in zip(motor_names, motors):
+        pos = motor.get_output_angle_radians()
+        print(f"  {name} ゼロ化後の実位置: {pos:.4f} rad")
+        if abs(pos) > ZERO_TOLERANCE:
+            zero_failures.append(f"{name} (実位置 {pos:.4f} rad)")
+    if zero_failures:
+        message = "ゼロ化が反映されていない可能性: " + ", ".join(zero_failures)
+        safety_monitor.trigger_emergency_stop(message)
+        raise RuntimeError(message)
+
     # 制御モード設定
     for i, motor in enumerate(motors):
         motor.set_impedance_gains_real_unit(K=K, B=B)
