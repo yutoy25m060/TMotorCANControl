@@ -29,7 +29,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import numpy as np
 from lib.config_loader import load_config
-from lib.logging_utils import make_log_path, make_realtime_loop
+from lib.logging_utils import (
+    console_log,
+    make_log_path,
+    make_realtime_loop,
+    make_run_dir,
+)
 from lib.motor_setup import build_motor_manager, get_motor_config, zero_position
 from lib.safety_monitor import SafetyMonitor
 
@@ -59,8 +64,9 @@ MAX_VELOCITY = config["safety"]["max_velocity"]
 MAX_TORQUE = config["safety"]["max_torque"]
 EMERGENCY_STOP_ENABLED = config["safety"]["emergency_stop"]
 
-# ログファイル名
-LOG_FILE = make_log_path("exp005_sysid_excitation")
+# 実行フォルダ（logs/exp005_sysid_excitation_{timestamp}/）を作成し、CSV・コンソールログをまとめる
+RUN_DIR = make_run_dir("exp005_sysid_excitation")
+LOG_FILE = make_log_path(RUN_DIR, "log.csv")
 
 
 def multi_sine_torque(t, amplitude, base_freq):
@@ -104,81 +110,82 @@ class ExcitationLogger:
         self.close()
 
 
-print(f"=== 実験 005: システム同定用 multi-sine 励振信号 ===")
-print(f"モーター: {motor_config.type} (ID: {motor_config.id})")
-print(f"基準周波数: {BASE_FREQ} Hz, 基準振幅: {AMPLITUDE} Nm (瞬時最大: {PEAK_TORQUE:.3f} Nm)")
-print(f"記録時間: {DURATION} 秒, サンプリング周期: {DT} 秒 ({1 / DT:.0f} Hz)")
-print(f"安全上限: 位置={MAX_POSITION} rad, 速度={MAX_VELOCITY} rad/s, トルク={MAX_TORQUE} Nm")
-print(f"ログ保存: {LOG_FILE}")
-print("=" * 50)
+with console_log(RUN_DIR):
+    print(f"=== 実験 005: システム同定用 multi-sine 励振信号 ===")
+    print(f"モーター: {motor_config.type} (ID: {motor_config.id})")
+    print(f"基準周波数: {BASE_FREQ} Hz, 基準振幅: {AMPLITUDE} Nm (瞬時最大: {PEAK_TORQUE:.3f} Nm)")
+    print(f"記録時間: {DURATION} 秒, サンプリング周期: {DT} 秒 ({1 / DT:.0f} Hz)")
+    print(f"安全上限: 位置={MAX_POSITION} rad, 速度={MAX_VELOCITY} rad/s, トルク={MAX_TORQUE} Nm")
+    print(f"ログ保存先: {RUN_DIR}")
+    print("=" * 50)
 
-# モーター制御（個別CSVロギングは無効化し、ExcitationLoggerでまとめて記録する）
-with build_motor_manager(motor_config, csv_file=None, log_vars=LOG_VARS) as motor:
-    # 位置ゼロ化
-    zero_position(motor)
+    # モーター制御（個別CSVロギングは無効化し、ExcitationLoggerでまとめて記録する）
+    with build_motor_manager(motor_config, csv_file=None, log_vars=LOG_VARS) as motor:
+        # 位置ゼロ化
+        zero_position(motor)
 
-    # 電流制御モード設定
-    # kp/ki/ff/spoof はダミー引数（mit_can.py set_current_gains() docstring 参照）。
-    # ここでは意図的に config.yaml の control.current.Kp/Ki を渡さない：
-    # 渡すと「PD整形された電流ループ」であるかのように読めてしまうが、実際は位置・速度・
-    # Kp・Kdが常に0でエンコードされる純トルク指令であり、それがこの実験の要件そのものである。
-    motor.set_current_gains()
+        # 電流制御モード設定
+        # kp/ki/ff/spoof はダミー引数（mit_can.py set_current_gains() docstring 参照）。
+        # ここでは意図的に config.yaml の control.current.Kp/Ki を渡さない：
+        # 渡すと「PD整形された電流ループ」であるかのように読めてしまうが、実際は位置・速度・
+        # Kp・Kdが常に0でエンコードされる純トルク指令であり、それがこの実験の要件そのものである。
+        motor.set_current_gains()
 
-    motor_name = f"{motor_config.type}(ID={motor_config.id})"
-    safety_monitor = SafetyMonitor(
-        [motor], [motor_name], MAX_POSITION, MAX_VELOCITY, MAX_TORQUE, emergency_stop=EMERGENCY_STOP_ENABLED
-    )
+        motor_name = f"{motor_config.type}(ID={motor_config.id})"
+        safety_monitor = SafetyMonitor(
+            [motor], [motor_name], MAX_POSITION, MAX_VELOCITY, MAX_TORQUE, emergency_stop=EMERGENCY_STOP_ENABLED
+        )
 
-    with ExcitationLogger(LOG_FILE, motor, LOG_VARS) as logger:
-        print("励振開始...")
-        loop = make_realtime_loop(dt=DT, report=REPORT)
+        with ExcitationLogger(LOG_FILE, motor, LOG_VARS) as logger:
+            print("励振開始...")
+            loop = make_realtime_loop(dt=DT, report=REPORT)
 
-        for t in loop:
-            try:
-                motor.update()  # 温度上限超過時はここでRuntimeErrorが送出される
-            except RuntimeError as e:
-                safety_monitor.trigger_emergency_stop(str(e))
-                break
-
-            # 励振トルクを計算し、コマンド段階の安全弁としてクランプする
-            raw_torque = multi_sine_torque(t, AMPLITUDE, BASE_FREQ)
-            commanded_torque = np.clip(raw_torque, -MAX_TORQUE, MAX_TORQUE)
-            motor.set_output_torque_newton_meters(commanded_torque)
-
-            # ログ記録（指令トルク + 実測値）
-            logger.log(t, commanded_torque)
-
-            # 安全制限チェック（実測値ベースの独立した安全層）
-            exceeded, message = safety_monitor.check()
-            if exceeded:
-                if safety_monitor.emergency_stop_enabled:
-                    safety_monitor.trigger_emergency_stop(message)
+            for t in loop:
+                try:
+                    motor.update()  # 温度上限超過時はここでRuntimeErrorが送出される
+                except RuntimeError as e:
+                    safety_monitor.trigger_emergency_stop(str(e))
                     break
-                else:
-                    print(f"警告（緊急停止は無効）: {message}")
 
-            # 進捗表示（約100msごと）
-            if loop.n % max(1, int(0.1 / DT)) == 0:
-                current_pos = motor.get_output_angle_radians()
-                current_vel = motor.get_output_velocity_radians_per_second()
-                current_torque = motor.get_output_torque_newton_meters()
-                print(
-                    f"経過時間: {t:.2f} 秒 | "
-                    f"指令トルク: {commanded_torque:.3f} Nm | "
-                    f"実測トルク: {current_torque:.3f} Nm | "
-                    f"位置: {current_pos:.3f} rad | "
-                    f"速度: {current_vel:.3f} rad/s"
-                )
+                # 励振トルクを計算し、コマンド段階の安全弁としてクランプする
+                raw_torque = multi_sine_torque(t, AMPLITUDE, BASE_FREQ)
+                commanded_torque = np.clip(raw_torque, -MAX_TORQUE, MAX_TORQUE)
+                motor.set_output_torque_newton_meters(commanded_torque)
 
-            # 実験時間チェック
-            if t >= DURATION:
-                break
+                # ログ記録（指令トルク + 実測値）
+                logger.log(t, commanded_torque)
 
-        total_time = t
-        expected_samples = int(DURATION / DT)
-        actual_samples = loop.n
-        print(f"実行時間: {total_time:.2f} 秒")
-        print(f"サンプル数: 実測 {actual_samples} / 期待値 {expected_samples}")
+                # 安全制限チェック（実測値ベースの独立した安全層）
+                exceeded, message = safety_monitor.check()
+                if exceeded:
+                    if safety_monitor.emergency_stop_enabled:
+                        safety_monitor.trigger_emergency_stop(message)
+                        break
+                    else:
+                        print(f"警告（緊急停止は無効）: {message}")
 
-print(f"ログ保存完了: {LOG_FILE}")
-print("実験 005 完了")
+                # 進捗表示（約100msごと）
+                if loop.n % max(1, int(0.1 / DT)) == 0:
+                    current_pos = motor.get_output_angle_radians()
+                    current_vel = motor.get_output_velocity_radians_per_second()
+                    current_torque = motor.get_output_torque_newton_meters()
+                    print(
+                        f"経過時間: {t:.2f} 秒 | "
+                        f"指令トルク: {commanded_torque:.3f} Nm | "
+                        f"実測トルク: {current_torque:.3f} Nm | "
+                        f"位置: {current_pos:.3f} rad | "
+                        f"速度: {current_vel:.3f} rad/s"
+                    )
+
+                # 実験時間チェック
+                if t >= DURATION:
+                    break
+
+            total_time = t
+            expected_samples = int(DURATION / DT)
+            actual_samples = loop.n
+            print(f"実行時間: {total_time:.2f} 秒")
+            print(f"サンプル数: 実測 {actual_samples} / 期待値 {expected_samples}")
+
+    print(f"ログ保存完了: {RUN_DIR}")
+    print("実験 005 完了")

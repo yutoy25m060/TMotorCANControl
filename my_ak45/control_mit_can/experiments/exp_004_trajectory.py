@@ -20,7 +20,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import numpy as np
 from lib.config_loader import load_config
-from lib.logging_utils import make_log_path, make_realtime_loop
+from lib.logging_utils import (
+    console_log,
+    make_log_path,
+    make_realtime_loop,
+    make_run_dir,
+)
 from lib.motor_setup import build_motor_manager, get_motor_config, zero_position
 
 # 設定ファイルの読み込み
@@ -37,15 +42,9 @@ AMPLITUDE = np.pi / 2  # 振幅 [rad] (90°)
 PERIOD = 4.0  # 周期 [秒]
 RUNTIME_SECONDS = 20  # 実験時間 [秒]
 
-# ログファイル名
-LOG_FILE = make_log_path("exp004_trajectory")
-
-print(f"=== 実験 004: 軌跡追従制御 ===")
-print(f"モーター: {motor_config.type} (ID: {motor_config.id})")
-print(f"制御ゲイン: K={K} Nm/rad, B={B} Nm/(rad/s)")
-print(f"軌跡: 三角波, 振幅={AMPLITUDE:.3f} rad, 周期={PERIOD} 秒")
-print(f"ログ保存: {LOG_FILE}")
-print("=" * 50)
+# 実行フォルダ（logs/exp004_trajectory_{timestamp}/）を作成し、CSV・コンソールログをまとめる
+RUN_DIR = make_run_dir("exp004_trajectory")
+LOG_FILE = make_log_path(RUN_DIR, "log.csv")
 
 
 def generate_triangle_trajectory(t, amplitude, period):
@@ -75,48 +74,56 @@ def calculate_trajectory_velocity(t, amplitude, period, dt=0.01):
     return velocity
 
 
-# モーター制御
-with build_motor_manager(motor_config, csv_file=LOG_FILE, log_vars=LOG_VARS) as motor:
-    # 位置ゼロ化
-    zero_position(motor)
+with console_log(RUN_DIR):
+    print(f"=== 実験 004: 軌跡追従制御 ===")
+    print(f"モーター: {motor_config.type} (ID: {motor_config.id})")
+    print(f"制御ゲイン: K={K} Nm/rad, B={B} Nm/(rad/s)")
+    print(f"軌跡: 三角波, 振幅={AMPLITUDE:.3f} rad, 周期={PERIOD} 秒")
+    print(f"ログ保存先: {RUN_DIR}")
+    print("=" * 50)
 
-    # インピーダンス制御設定
-    motor.set_impedance_gains_real_unit(K=K, B=B)
+    # モーター制御
+    with build_motor_manager(motor_config, csv_file=LOG_FILE, log_vars=LOG_VARS) as motor:
+        # 位置ゼロ化
+        zero_position(motor)
 
-    # メイン制御ループ
-    print("軌跡追従開始...")
-    loop = make_realtime_loop()  # 100Hz制御
-    max_tracking_error = 0.0
+        # インピーダンス制御設定
+        motor.set_impedance_gains_real_unit(K=K, B=B)
 
-    for t in loop:
-        # 軌跡生成
-        desired_pos = generate_triangle_trajectory(t, AMPLITUDE, PERIOD)
+        # メイン制御ループ
+        print("軌跡追従開始...")
+        loop = make_realtime_loop()  # 100Hz制御
+        max_tracking_error = 0.0
 
-        # モーター制御
-        motor.update()
-        motor.set_output_angle_radians(desired_pos)
+        for t in loop:
+            # 軌跡生成
+            desired_pos = generate_triangle_trajectory(t, AMPLITUDE, PERIOD)
 
-        # 追従誤差計算
-        current_pos = motor.get_output_angle_radians()
-        tracking_error = abs(desired_pos - current_pos)
-        max_tracking_error = max(max_tracking_error, tracking_error)
+            # モーター制御
+            motor.update()
+            motor.set_output_angle_radians(desired_pos)
 
-        # 制御情報表示（200msごと）
-        if loop.n % 20 == 0:
-            current_vel = motor.get_output_velocity_radians_per_second()
-            print(
-                f"経過時間: {t:.1f} 秒 | "
-                f"目標位置: {desired_pos:.3f} rad | "
-                f"現在位置: {current_pos:.3f} rad | "
-                f"現在速度: {current_vel:.3f} rad/s | "
-                f"追従誤差: {tracking_error:.3f} rad"
-            )
+            # 追従誤差計算
+            current_pos = motor.get_output_angle_radians()
+            tracking_error = abs(desired_pos - current_pos)
+            max_tracking_error = max(max_tracking_error, tracking_error)
 
-        # 実験時間チェック
-        if t >= RUNTIME_SECONDS:
-            break
+            # 制御情報表示（200msごと）
+            if loop.n % 20 == 0:
+                current_vel = motor.get_output_velocity_radians_per_second()
+                print(
+                    f"経過時間: {t:.1f} 秒 | "
+                    f"目標位置: {desired_pos:.3f} rad | "
+                    f"現在位置: {current_pos:.3f} rad | "
+                    f"現在速度: {current_vel:.3f} rad/s | "
+                    f"追従誤差: {tracking_error:.3f} rad"
+                )
 
-    total_time = t
-    print(f"実行時間: {total_time:.2f} 秒 | 最大追従誤差: {max_tracking_error:.3f} rad")
-print(f"ログ保存完了: {LOG_FILE}")
-print("実験 004 完了")
+            # 実験時間チェック
+            if t >= RUNTIME_SECONDS:
+                break
+
+        total_time = t
+        print(f"実行時間: {total_time:.2f} 秒 | 最大追従誤差: {max_tracking_error:.3f} rad")
+    print(f"ログ保存完了: {RUN_DIR}")
+    print("実験 004 完了")

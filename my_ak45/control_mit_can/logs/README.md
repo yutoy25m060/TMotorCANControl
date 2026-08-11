@@ -2,22 +2,32 @@
 
 このディレクトリには、各実験のログファイルが保存されます。
 
-## ログファイル命名規則
+## フォルダ構成
 
-命名パターンは実験スクリプトごとに異なります：
+スクリプトを実行するたびに、`logs/` 直下に `{実験名}_{タイムスタンプ}/` という実行フォルダが
+1つ自動作成され（`lib/logging_utils.py` の `make_run_dir()`）、その実行で生成するCSV・
+コンソールログはすべてこのフォルダの下にまとめて保存されます。
 
-- `0_template_basic.py`: `basic_control_{タイムスタンプ}.csv`
-- `1_template_impedance.py`: `impedance_control_{タイムスタンプ}.csv`
-- `2_template_current.py`: `current_control_{タイムスタンプ}.csv`
-- `exp_001_gain_tuning.py`: `exp001_gain_{連番}_{ゲインセット名}_{タイムスタンプ}.csv`（ゲインセットごとに1ファイル）
-- `exp_002_step_response.py`: `exp002_step_response_{タイムスタンプ}.csv`
-- `exp_003_multi_motor.py`: `exp003_multi_motor_sync_{タイムスタンプ}.csv`（**全モーターを共通タイムラインで1ファイルに記録**。`sync_logger.py` の `SyncMultiMotorLogger` を使用）
-- `exp_004_trajectory.py`: `exp004_trajectory_{タイムスタンプ}.csv`
+各フォルダには必ず `console.log`（その実行中にターミナルに表示された内容の複製。進捗表示・
+警告・未捕捉の例外のトレースバックを含む）が入ります。CSVのファイル名は実験スクリプトごとに
+異なります：
+
+- `0_template_basic.py`: `logs/basic_control_{タイムスタンプ}/log.csv`
+- `1_template_impedance.py`: `logs/impedance_control_{タイムスタンプ}/log.csv`
+- `2_template_current.py`: `logs/current_control_{タイムスタンプ}/log.csv`
+- `exp_001_gain_tuning.py`: `logs/exp001_gain_tuning_{タイムスタンプ}/gain_{連番}_{ゲインセット名}.csv`（1回の実行フォルダの中に、ゲインセットごとに1ファイル）
+- `exp_002_step_response.py`: `logs/exp002_step_response_{タイムスタンプ}/log.csv`
+- `exp_003_multi_motor.py`: `logs/exp003_multi_motor_{タイムスタンプ}/sync_log.csv`（**全モーターを共通タイムラインで1ファイルに記録**。`sync_logger.py` の `SyncMultiMotorLogger` を使用）
+- `exp_004_trajectory.py`: `logs/exp004_trajectory_{タイムスタンプ}/log.csv`
+- `exp_005_sysid_excitation.py`: `logs/exp005_sysid_excitation_{タイムスタンプ}/log.csv`
+- `exp_006_thermal_baseline_check.py`: `logs/exp006_thermal_baseline_{タイムスタンプ}/log.csv`
+- `exp_007_thermal_baseline_multi.py`: `logs/exp007_thermal_baseline_multi_{タイムスタンプ}/sync_log.csv`
 
 例:
-- `exp002_step_response_1703123567.csv`
-- `exp003_multi_motor_sync_1703123678.csv`
-- `exp004_trajectory_1703123789.csv`
+- `logs/exp002_step_response_1703123567/log.csv`
+- `logs/exp002_step_response_1703123567/console.log`
+- `logs/exp003_multi_motor_1703123678/sync_log.csv`
+- `logs/exp003_multi_motor_1703123678/console.log`
 
 ## ログ変数
 
@@ -47,7 +57,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # ログファイル読み込み
-df = pd.read_csv('exp001_gain_tuning_1703123456.csv')
+df = pd.read_csv('exp002_step_response_1703123567/log.csv')
 
 # 時間軸の作成
 df['time'] = df.index / 100  # 100Hz サンプリングの場合
@@ -87,7 +97,7 @@ plt.show()
 
 ```matlab
 % ログファイル読み込み
-data = readtable('exp001_gain_tuning_1703123456.csv');
+data = readtable('exp002_step_response_1703123567/log.csv');
 
 % 時間軸の作成
 time = (0:length(data.output_angle)-1)' / 100;

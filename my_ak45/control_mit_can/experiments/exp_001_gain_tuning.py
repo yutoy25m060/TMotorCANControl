@@ -20,7 +20,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import numpy as np
 from lib.config_loader import load_config
-from lib.logging_utils import make_log_path, make_realtime_loop
+from lib.logging_utils import (
+    console_log,
+    make_log_path,
+    make_realtime_loop,
+    make_run_dir,
+)
 from lib.motor_setup import build_motor_manager, get_motor_config, zero_position
 
 # 設定ファイルの読み込み
@@ -41,57 +46,63 @@ TARGET_POSITION = np.pi / 4  # 45度
 STEP_DURATION = 5.0  # 各ゲインでのステップ時間 [秒]
 SETTLE_TIME = 2.0  # 安定待ち時間 [秒]
 
-print(f"=== 実験 001: インピーダンスゲイン調整 ===")
-print(f"モーター: {motor_config.type} (ID: {motor_config.id})")
-print(f"目標位置: {TARGET_POSITION:.3f} rad ({np.degrees(TARGET_POSITION):.1f}°)")
-print(f"テストするゲインセット: {len(GAIN_SETS)} 種類")
-print("=" * 50)
+# 実行フォルダ（logs/exp001_gain_tuning_{timestamp}/）を作成し、
+# 各ゲインセットのCSV・コンソールログをまとめる
+RUN_DIR = make_run_dir("exp001_gain_tuning")
 
-for i, gain_set in enumerate(GAIN_SETS):
-    K = gain_set["K"]
-    B = gain_set["B"]
-    name = gain_set["name"]
+with console_log(RUN_DIR):
+    print(f"=== 実験 001: インピーダンスゲイン調整 ===")
+    print(f"モーター: {motor_config.type} (ID: {motor_config.id})")
+    print(f"目標位置: {TARGET_POSITION:.3f} rad ({np.degrees(TARGET_POSITION):.1f}°)")
+    print(f"テストするゲインセット: {len(GAIN_SETS)} 種類")
+    print(f"ログ保存先: {RUN_DIR}")
+    print("=" * 50)
 
-    print(f"\n--- ゲインセット {i + 1}: {name} (K={K}, B={B}) ---")
+    for i, gain_set in enumerate(GAIN_SETS):
+        K = gain_set["K"]
+        B = gain_set["B"]
+        name = gain_set["name"]
 
-    # ログファイル名
-    LOG_FILE = make_log_path(f"exp001_gain_{i + 1}_{name}")
+        print(f"\n--- ゲインセット {i + 1}: {name} (K={K}, B={B}) ---")
 
-    # モーター制御
-    with build_motor_manager(motor_config, csv_file=LOG_FILE, log_vars=LOG_VARS) as motor:
-        # 位置ゼロ化
-        zero_position(motor, verbose=False)
+        # ログファイル名
+        LOG_FILE = make_log_path(RUN_DIR, f"gain_{i + 1}_{name}.csv")
 
-        # ゲイン設定
-        motor.set_impedance_gains_real_unit(K=K, B=B)
+        # モーター制御
+        with build_motor_manager(motor_config, csv_file=LOG_FILE, log_vars=LOG_VARS) as motor:
+            # 位置ゼロ化
+            zero_position(motor, verbose=False)
 
-        # 安定待ち
-        print(f"安定待ち {SETTLE_TIME} 秒...")
-        loop = make_realtime_loop(report=False)  # 安定待ちはレポートなし
-        for t in loop:
-            motor.update()
-            motor.set_output_angle_radians(0.0)  # ゼロ位置維持
-            if t >= SETTLE_TIME:
-                break
+            # ゲイン設定
+            motor.set_impedance_gains_real_unit(K=K, B=B)
 
-        # ステップ応答
-        print(f"ステップ応答測定開始 ({STEP_DURATION} 秒)...")
-        loop = make_realtime_loop(report=False)  # 測定中はレポートなし
-        for t in loop:
-            motor.update()
-            motor.set_output_angle_radians(TARGET_POSITION)
+            # 安定待ち
+            print(f"安定待ち {SETTLE_TIME} 秒...")
+            loop = make_realtime_loop(report=False)  # 安定待ちはレポートなし
+            for t in loop:
+                motor.update()
+                motor.set_output_angle_radians(0.0)  # ゼロ位置維持
+                if t >= SETTLE_TIME:
+                    break
 
-            # 進捗表示
-            if loop.n % 50 == 0:  # 500ms ごと
-                current_pos = motor.get_output_angle_radians()
-                error = TARGET_POSITION - current_pos
-                print(f"経過時間: {t:.1f} 秒 | 現在位置: {current_pos:.3f} rad | 誤差: {error:.3f} rad")
+            # ステップ応答
+            print(f"ステップ応答測定開始 ({STEP_DURATION} 秒)...")
+            loop = make_realtime_loop(report=False)  # 測定中はレポートなし
+            for t in loop:
+                motor.update()
+                motor.set_output_angle_radians(TARGET_POSITION)
 
-            if t >= STEP_DURATION:
-                break
+                # 進捗表示
+                if loop.n % 50 == 0:  # 500ms ごと
+                    current_pos = motor.get_output_angle_radians()
+                    error = TARGET_POSITION - current_pos
+                    print(f"経過時間: {t:.1f} 秒 | 現在位置: {current_pos:.3f} rad | 誤差: {error:.3f} rad")
 
-        print(f"ログ保存: {LOG_FILE}")
+                if t >= STEP_DURATION:
+                    break
 
-print("\n=== 実験 001 完了 ===")
-print("ログファイルを分析して最適なゲインを決定してください。")
-print("推奨: Python/matplotlib で応答曲線をプロット")
+            print(f"ログ保存: {LOG_FILE}")
+
+    print("\n=== 実験 001 完了 ===")
+    print("ログファイルを分析して最適なゲインを決定してください。")
+    print("推奨: Python/matplotlib で応答曲線をプロット")

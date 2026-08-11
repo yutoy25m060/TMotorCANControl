@@ -23,8 +23,9 @@ my_ak45_control/
 │   ├── exp_003_multi_motor.py     # 多モーター制御実験
 │   ├── exp_004_trajectory.py      # 軌跡追従実験
 │   └── exp_005_sysid_excitation.py # システム同定用 multi-sine 励振実験
-├── logs/                    # 実験ログ
-│   └── README.md           # ログ分析ガイド
+├── logs/                    # 実験ログ（実行ごとにサブフォルダが作られる）
+│   ├── README.md           # ログ分析ガイド
+│   └── {実験名}_{タイムスタンプ}/  # 1回の実行につき1フォルダ（CSV + コンソールログ）
 └── README_ja.md            # このファイル
 ```
 ### テンプレート
@@ -36,12 +37,17 @@ my_ak45_control/
 - 実験スクリプト側は config.yaml を読み込み、パラメータを上書き
 
 ## ロギング
-- CSV 出力は自動的に logs/ に保存
-- ファイル名に タイムスタンプ を含める
+- スクリプト実行のたびに `logs/{実験名}_{タイムスタンプ}/` フォルダが自動作成され、
+  その実行のCSV・コンソールログはすべてこのフォルダの下に保存される
+  （`lib/logging_utils.py` の `make_run_dir()`）
+- CSV: 従来どおり `TMotorManager_mit_can`/`SyncMultiMotorLogger` が記録（内容は変更なし）
+- コンソールログ: 実行中にターミナルへ表示された内容（進捗表示・警告・未捕捉の例外の
+  トレースバックを含む）を `console.log` として複製記録する（`lib/logging_utils.py` の
+  `console_log`）。ターミナルへの表示自体はそのまま行われる
 - README_ja.md で進捗・実験結果を記録
 
 ## 版管理
-- logs/*.csv は .gitignore に
+- logs/ 以下の `*.csv`/`*.log`（console.log を含む）は .gitignore に
 - 実験スクリプト、テンプレート、config.yaml は Git 追跡対象
 
 ## 運用
