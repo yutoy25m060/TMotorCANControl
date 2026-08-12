@@ -1,12 +1,15 @@
 # MuJoCo 関連リポジトリ向け統合 requirements
 # 複数の環境を 1 つの requirements.txt で管理するため、用途別に整理しています。
-#
-# ※ システム同定（sysid）環境だけはこのファイルに含めず requirements-sysid.txt に分離している。
-#   mujoco.sysid は mujoco>=3.5.0 でのみ提供され、下の mujoco==3.3.4 ピンと競合するため
-#   （同居させると pip の依存解決が失敗する）。理由の詳細は requirements-sysid.txt 冒頭を参照。
 
 # --- Core (必須) ---
-mujoco==3.3.4
+# sysid extra（= mujoco.sysid モジュール、AK45-36_sysid_作業手順.md フェーズ2〜4で使用）は
+# mujoco 3.5.0 で追加された（PyPIメタデータ上、3.4.0までのprovides_extraはusdのみ）。
+# 旧 3.3.4 ピンには理由の記録がなく、3.5.0台への引き上げに支障がないため sysid を含めて統合した。
+# extra が absl-py/colorama/imageio[ffmpeg]/jinja2/matplotlib/plotly/pyyaml/scipy/tabulate/
+# typing_extensions をまとめて入れるため、それらの明示指定は不要。
+# TODO: sysidのAPIで動作確認が取れた時点で、>= ではなく実際に動いたバージョンに固定する
+#       （比較的新しいAPIのためバージョン間で変わる可能性がある）
+mujoco[sysid]>=3.5.0
 numpy
 scipy
 glfw
@@ -33,6 +36,9 @@ PyQt6
 pillow
 opencv-python
 moviepy
+
+# --- sysid: 実機CSVログ（data/raw/）を sysid.TimeSeries に変換するアダプタ用 ---
+pandas
 
 # --- Optional: CUDA for JAX (NVIDIA GPU 利用時のみ) ---
 # jax-cuda12-plugin

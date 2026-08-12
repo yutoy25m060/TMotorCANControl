@@ -49,10 +49,10 @@ Windows PC（Piをリモート操作している側の母艦）で行う。こ�
 
 ### フェーズ2: MuJoCo最小モデルの作成 【Windows PC】
 
-6. [ ] Windows PC に sysid環境をインストール: `pip install -r my_ak45/Mujoco/requirements-sysid.txt`
+6. [ ] Windows PC に環境をインストール: `pip install -r my_ak45/Mujoco/requirements.txt`
        - `mujoco[sysid]`（= `mujoco.sysid` モジュール）は **mujoco 3.5.0 以降**でのみ提供される。
-         `requirements.txt` の `mujoco==3.3.4` では入らないため、sysid用は
-         `requirements-sysid.txt` に分離してある（同一ファイルに書くと pip が競合で失敗する）
+         旧来の `mujoco==3.3.4` ピンには理由の記録がなく、3.5.0台への引き上げに支障がなかったため
+         `requirements.txt` 自体を `mujoco[sysid]>=3.5.0` に更新して統合済み（別ファイルへの分離は撤回）
        - 公式ノートブックにある `--pre -f https://py.mujoco.org/` は現在不要
          （sysid は通常のPyPI安定版に取り込み済み）
        - GPU関連パッケージはsysid最適化には不要（上記「前提・役割分担」の補足を参照）
@@ -91,8 +91,8 @@ Windows PC（Piをリモート操作している側の母艦）で行う。こ�
 
 - `my_ak45/Mujoco/data/raw/` のCSVはサンプルレート次第で1ファイルあたり数百KB〜数MB程度になりうる
   （1kHz×10秒＝10,000行）。試行数が増えた場合にリポジトリサイズへの影響を再検討する
-- ~~Windows PC側の `mujoco[sysid]` インストール方法~~ → `requirements-sysid.txt` として確定
-  （`mujoco[sysid]>=3.5.0` + `pandas`）。ただし uv/pip どちらで管理するかは未決定。
+- ~~Windows PC側の `mujoco[sysid]` インストール方法~~ → `requirements.txt` を
+  `mujoco[sysid]>=3.5.0` + `pandas` に更新して確定。ただし uv/pip どちらで管理するかは未決定。
   また `>=3.5.0` は下限のみの指定であり、チュートリアルのAPIで実際に動作確認が取れた時点で
   そのバージョンに固定すること（sysid は新しいAPIのため変更されている可能性がある）
 - フェーズ2のXMLモデルをどこまで詳細化するか（単一関節のみか、将来的な脚機構を見据えるか）は
