@@ -75,6 +75,8 @@ jax / mjx は使っていない（GPU設定のセルは Colab 上での動画レ
   - PyPI メタデータ照会により `sysid` extra の初出が mujoco 3.5.0 であること、および
     3.3.4/3.3.5/3.3.6/3.3.7/3.4.0 には存在しないことを確認
   - `sysid` extra が引き込む依存10件を確認し、明示記載が不要であることを確認
-  - `python -c "import TMotorCANControl"` — 成功（メインパッケージへの影響なし）
-  - `ruff check .` — 本変更に起因する新規エラーなし（Pythonファイルの変更なし）
+  - 本変更はrequirements/Markdownのみで、Pythonファイルは1行も変更していないため
+    `ruff check` / インポート確認の対象外
+    （なお作業環境には `python-can` 等の依存が入っておらず
+    `python -c "import TMotorCANControl"` は元から実行不可。今回の変更とは無関係）
 - [ ] リグレッションテスト: Windows PC 側での実インストール・sysid実行は未実施
