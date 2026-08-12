@@ -43,13 +43,27 @@ POS_RANGE_MIN = 0.20  # 位置の可動範囲の下限 [rad]（小さすぎる�
 SAMPLE_COUNT_FRAC_MIN = 0.99  # 期待サンプル数に対する許容下限
 
 # wall_time 列（実時刻、2026-08-13追加）による実ジッタ評価のしきい値。
-# 実機初回計測（1kHz、10250サイクル）で avg 0.002ms / stddev 0.029ms だったことを基準に、
-# その3倍程度を警告ラインとした（統計的根拠ではなく経験的な余裕）。詳細は
-# .ai/logs/2026-08-13_03_* 参照。
-JITTER_STD_WARN_MS = 0.1
-JITTER_STD_FAIL_MS = 0.3
-JITTER_MAX_WARN_MS = 1.0  # 単一サンプルの最大遅延（CAN再送などスパイク性の遅れを検出）
-JITTER_MAX_FAIL_MS = 3.0
+#
+# 単発スパイク（1ms超）の原因は調査済みで、**このスクリプト側の処理ではなく
+# Linux（非リアルタイムOS）の背景ノイズ**であることが分かっている:
+#   - numpy計算・CSV書き込み・CAN通信・GCをすべて除いた最小構成（time.sleepのみ）でも
+#     同じ規模のスパイクが出る。同一条件6回の反復で 1ms超は 0〜7個・最大2.38ms とばらつき、
+#     実機ランの「4個・最大1.4〜3.0ms」はこのベースラインの範囲内に収まる
+#   - GCイベントは0回でもスパイクは発生（GC仮説は棄却）
+#   - CSVバッファのフラッシュが原因なら約173回発生するはずで桁が合わない（棄却）
+#   - 実行時のCPU温度56.5℃・スロットリングなし・負荷0.16と、システムは暇な状態
+# したがって単発スパイクは制御不能であり、これでFAILにすると良質なデータを捨ててしまう。
+# 加えて SoftRealtimeLoop は絶対時刻を目標とするため遅れは直後のサンプルで詰めて相殺され
+# （実測: 正のずれ合計+40.6ms に対し負-41.5ms、10秒間の正味-0.9ms）、CSVには wall_time が
+# 記録されるので sysid 側で正確な時刻対応を復元できる。
+# よって単発スパイクは WARN 止まりとし、FAIL は「遅延が蓄積している」場合に限る
+# （蓄積はサンプルの取りこぼしを意味し、こちらは実際にデータを損なう）。
+# 詳細は .ai/logs/2026-08-13_03_*・2026-08-13_04_* 参照。
+JITTER_STD_WARN_MS = 0.15  # 実測ベースライン上限0.056msの約3倍
+JITTER_STD_FAIL_MS = 0.5
+JITTER_MAX_WARN_MS = 1.0  # 単発スパイクの検出（背景ノイズなのでWARN止まり）
+JITTER_DRIFT_WARN_MS_PER_S = 0.05  # wall_time - t の傾き。蓄積の兆候
+JITTER_DRIFT_FAIL_MS_PER_S = 0.20  # 10秒で2ms蓄積＝サンプル2個分に相当
 
 # exp_005_sysid_excitation.py の既定値（単体実行時のフォールバック。
 # 実験スクリプトから呼ぶ場合は必ず実際の値を引数で渡すこと）
@@ -178,22 +192,34 @@ def check_run(csv_path, base_freq=DEFAULT_BASE_FREQ, harmonic_ratios=DEFAULT_HAR
         real_dt = np.diff(d["wall_time"]) * 1000  # ms
         dev = real_dt - dt_med * 1000  # 公称dtからの各サンプルのずれ [ms]
         jstd, jmean, jmax = float(dev.std()), float(dev.mean()), float(np.abs(dev).max())
-        status = "FAIL" if (jstd > JITTER_STD_FAIL_MS or jmax > JITTER_MAX_FAIL_MS) else (
-            "WARN" if (jstd > JITTER_STD_WARN_MS or jmax > JITTER_MAX_WARN_MS) else "PASS"
+        # 遅延の「蓄積」を測る。単発スパイクと違いこちらは実際にデータを損なう
+        # （サンプルの取りこぼし＝指令と実測の時刻対応が回復不能にずれる）ため、
+        # FAIL の判定はこの傾きで行う。
+        drift = (d["wall_time"] - t) * 1000  # ms
+        drift_slope = float(np.polyfit(t, drift, 1)[0])  # ms/秒
+        status = "FAIL" if (jstd > JITTER_STD_FAIL_MS or abs(drift_slope) > JITTER_DRIFT_FAIL_MS_PER_S) else (
+            "WARN"
+            if (jstd > JITTER_STD_WARN_MS or jmax > JITTER_MAX_WARN_MS or abs(drift_slope) > JITTER_DRIFT_WARN_MS_PER_S)
+            else "PASS"
         )
         worst_i = int(np.argmax(np.abs(dev)))
         # 最大値だけでは「単発のスパイクか、恒常的な乱れか」が区別できないため個数も出す。
-        # 実機ではCAN再送やOSのスケジューリングで数サンプルだけ遅延することがあるが、
-        # SoftRealtimeLoop は絶対時刻を目標とするため直後のサンプルで詰めて自己補正し、
-        # 遅延は蓄積しない（実測: wall_time - t の乖離は10秒間で増加せず）。
         n_over = int(np.sum(np.abs(dev) > JITTER_MAX_WARN_MS))
         rep.item(
             "   実ジッタ (wall_time)",
             status,
             f"平均{jmean:+.3f}ms, 標準偏差{jstd:.3f}ms, 最大{jmax:.3f}ms (t={t[worst_i + 1]:.2f}s付近)"
-            f", {JITTER_MAX_WARN_MS}ms超は{n_over}/{len(dev)}サンプル ({100 * n_over / len(dev):.2f}%)",
+            f", {JITTER_MAX_WARN_MS}ms超は{n_over}/{len(dev)}サンプル ({100 * n_over / len(dev):.2f}%)"
+            f", 蓄積{drift_slope:+.4f}ms/秒",
         )
         if n_over:
+            rep.item(
+                "   (参考)",
+                "INFO",
+                "単発スパイクはLinux（非リアルタイムOS）の背景ノイズで、本スクリプトの処理が原因ではない"
+                "（numpy/CSV/CAN/GCを全て除いた最小構成でも同規模で発生することを確認済み）。"
+                "SoftRealtimeLoopが直後のサンプルで詰めて相殺するため蓄積せず、実害はない",
+            )
             rep.item(
                 "   (対処)",
                 "INFO",
