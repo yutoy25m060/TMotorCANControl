@@ -147,18 +147,34 @@ with console_log(RUN_DIR):
             loop = make_realtime_loop(dt=DT, report=REPORT)
 
             for t in loop:
-                try:
-                    motor.update()  # 温度上限超過時はここでRuntimeErrorが送出される
-                except RuntimeError as e:
-                    safety_monitor.trigger_emergency_stop(str(e))
-                    break
-
-                # 励振トルクを計算し、コマンド段階の安全弁としてクランプする
+                # 励振トルクを計算し、コマンド段階の安全弁としてクランプする。
+                #
+                # set_*() を update() より「前」に置くことが重要。update() は内部で
+                # 「状態を読む → コマンドを送信」の順に処理する（mit_can.py の update() 末尾で
+                # _send_command() を呼ぶ）ため、この順序なら commanded_torque は同じイテレーション
+                # 内で送信される。逆順（update() が先）にすると送信が次のイテレーションまで
+                # 持ち越され、CSV 上で指令列が実測列より1サンプル余計に先行してしまう。
+                # 実機データ（2026-08-13）の周波数応答解析でも、この余分な先行が
+                # 約1.05ms のむだ時間として現れ、1サンプルずらすと 0.25ms まで消えることを確認した。
+                # sysid では入力と出力の時間対応がそのまま同定誤差になるため、ここで削っておく。
+                # 詳細は .ai/logs/2026-08-13_01_* 参照。
                 raw_torque = multi_sine_torque(t, AMPLITUDE, BASE_FREQ)
                 commanded_torque = np.clip(raw_torque, -MAX_TORQUE, MAX_TORQUE)
                 motor.set_output_torque_newton_meters(commanded_torque)
 
+                try:
+                    # 状態読み取り + commanded_torque の送信。温度上限超過時はRuntimeErrorが送出される
+                    motor.update()
+                except RuntimeError as e:
+                    safety_monitor.trigger_emergency_stop(str(e))
+                    break
+
                 # ログ記録（指令トルク + 実測値）
+                #
+                # 注意: ここで読める実測値は「1つ前のイテレーションで送信したコマンド」への応答。
+                # update() は状態を読んでからコマンドを送るため、指令を出す前にその応答を測ることは
+                # 原理的にできず、この1サンプル分のずれはスクリプト側では解消できない。
+                # MuJoCo sysid 用にデータを整形する際に、実測列を1行前に詰めて補正すること。
                 logger.log(t, commanded_torque)
 
                 # 安全制限チェック（実測値ベースの独立した安全層）
