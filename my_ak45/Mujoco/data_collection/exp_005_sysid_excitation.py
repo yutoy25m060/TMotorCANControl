@@ -39,6 +39,9 @@ from lib.logging_utils import console_log, make_realtime_loop
 from lib.motor_setup import build_motor_manager, get_motor_config, zero_position
 from lib.safety_monitor import SafetyMonitor
 
+# 同一ディレクトリのモジュール（control_mit_can/lib ではなくこちら側の資産）
+from sysid_run_check import check_run
+
 # 設定ファイルの読み込み
 config = load_config()
 motor_config = get_motor_config(config)
@@ -58,6 +61,13 @@ REPORT = SYSID_CONFIG["report"]
 HARMONIC_RATIOS = (1.0, 3.4, 7.4)
 HARMONIC_WEIGHTS = (1.0, 0.6, 0.3)
 PEAK_TORQUE = AMPLITUDE * sum(HARMONIC_WEIGHTS)
+
+# 参照技術（RS02実験）と同じ使用可能データ量 [秒]。config.yaml の DURATION は起動直後の
+# 過渡（励振が助走なしに始まるため速度が一気に乗る区間、sysid_run_check.py が検出して
+# 切り捨てを促す）分の余裕を上乗せした値になっているため、切り捨てた後にこの値を
+# 満たしているかを sysid_run_check.py 側で確認する。詳細は
+# .ai/logs/2026-08-13_02_startup-transient-and-auto-check_01.md 参照。
+TARGET_USABLE_DURATION = 10.0
 
 # 安全制限パラメータ（config.yaml の safety.* を再利用、新規フィールドは追加しない）
 MAX_POSITION = config["safety"]["max_position"]
@@ -210,4 +220,25 @@ with console_log(RUN_DIR):
             print(f"サンプル数: 実測 {actual_samples} / 期待値 {expected_samples}")
 
     print(f"ログ保存完了: {RUN_DIR}")
+
+    # 取得したデータがsysidに使える品質かを自動検証する。
+    # モーターの with ブロックを抜けた後（＝電源オフ済み・CSVクローズ済み）に実行するため、
+    # 制御ループのリアルタイム性には影響しない。結果は console_log により console.log にも残る。
+    # 初回取得時、飽和域のデータであることにCSVを解析するまで気付けなかった反省による。
+    print()
+    try:
+        check_run(
+            LOG_FILE,
+            base_freq=BASE_FREQ,
+            harmonic_ratios=HARMONIC_RATIOS,
+            expected_samples=int(DURATION / DT),
+            max_temp=motor_config.max_temp,
+            target_usable_duration=TARGET_USABLE_DURATION,
+        )
+    except Exception as e:
+        # 検証はあくまで事後の付随処理であり、ここで失敗しても取得済みデータは有効。
+        # 実験そのものを失敗扱いにしないよう、例外は握りつぶして通知だけ行う。
+        print(f"（自動検証の実行に失敗しました: {type(e).__name__}: {e}）")
+        print("（取得データ自体は保存済みです。sysid_run_check.py を単体で実行して確認してください）")
+
     print("実験 005 完了")
