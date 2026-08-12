@@ -2,8 +2,14 @@
 
 ## 前提・役割分担
 
-実機（CAN通信）はRaspberry Piでしか扱えないが、MuJoCo sysid の最適化計算はGPUが使える
+実機（CAN通信）はRaspberry Piでしか扱えないため、MuJoCo sysid の最適化計算は
 Windows PC（Piをリモート操作している側の母艦）で行う。このため作業を次のように分担する。
+
+> **補足（当初想定の訂正）**: 当初はPC側を使う理由を「GPUが使えるから」としていたが、
+> sysid最適化にGPUは不要。最適化は有限差分ヤコビアンによる Gauss-Newton/LM であり、
+> 各パラメータ摂動のロールアウトは `mujoco.rollout` が**CPUスレッド並列**で実行する
+> （公式ノートブックのGPU設定はColab上での動画レンダリング用）。
+> PC側で行う実質的な利点は「CPUコア数が多い」「Piの実機制御を止めずに解析できる」の2点。
 
 - **Pi 側**: 実機データ取得のみ（`my_ak45/control_mit_can/` の `lib/`・`config.yaml` を再利用）
 - **Windows PC 側**: MuJoCoモデル作成・最適化・validation（`my_ak45/Mujoco/` 配下）
@@ -43,8 +49,13 @@ Windows PC（Piをリモート操作している側の母艦）で行う。こ�
 
 ### フェーズ2: MuJoCo最小モデルの作成 【Windows PC】
 
-6. [ ] Windows PC に `mujoco[sysid]` をインストール（`my_ak45/Mujoco/requirements.txt` 参照。
-       GPUレンダリング関連の項目はsysid最適化自体には必須ではない）
+6. [ ] Windows PC に sysid環境をインストール: `pip install -r my_ak45/Mujoco/requirements-sysid.txt`
+       - `mujoco[sysid]`（= `mujoco.sysid` モジュール）は **mujoco 3.5.0 以降**でのみ提供される。
+         `requirements.txt` の `mujoco==3.3.4` では入らないため、sysid用は
+         `requirements-sysid.txt` に分離してある（同一ファイルに書くと pip が競合で失敗する）
+       - 公式ノートブックにある `--pre -f https://py.mujoco.org/` は現在不要
+         （sysid は通常のPyPI安定版に取り込み済み）
+       - GPU関連パッケージはsysid最適化には不要（上記「前提・役割分担」の補足を参照）
 7. [ ] AK45-36 用の単一ヒンジ + トルクアクチュエータの最小XMLモデルを新規作成する
        （`docs_syid/sysid_mujoco_vscodeへの移設コード途中.py` のARM_XML/SPRING_MASS_XMLが
        雛形になる）。`GEAR_RATIO=36.0` など `MIT_Params["AK45-36"]`（`src/TMotorCANControl/mit_can.py`）
@@ -80,6 +91,9 @@ Windows PC（Piをリモート操作している側の母艦）で行う。こ�
 
 - `my_ak45/Mujoco/data/raw/` のCSVはサンプルレート次第で1ファイルあたり数百KB〜数MB程度になりうる
   （1kHz×10秒＝10,000行）。試行数が増えた場合にリポジトリサイズへの影響を再検討する
-- Windows PC側の `mujoco[sysid]` インストール方法・Python環境（uv/pipどちらを使うか）は未決定
+- ~~Windows PC側の `mujoco[sysid]` インストール方法~~ → `requirements-sysid.txt` として確定
+  （`mujoco[sysid]>=3.5.0` + `pandas`）。ただし uv/pip どちらで管理するかは未決定。
+  また `>=3.5.0` は下限のみの指定であり、チュートリアルのAPIで実際に動作確認が取れた時点で
+  そのバージョンに固定すること（sysid は新しいAPIのため変更されている可能性がある）
 - フェーズ2のXMLモデルをどこまで詳細化するか（単一関節のみか、将来的な脚機構を見据えるか）は
   `my_ak45/docs_mechanism/`・`quadruped_prep_ja.md` の計画次第で変わりうる

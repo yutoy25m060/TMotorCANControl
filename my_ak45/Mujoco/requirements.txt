@@ -1,5 +1,9 @@
 # MuJoCo 関連リポジトリ向け統合 requirements
 # 複数の環境を 1 つの requirements.txt で管理するため、用途別に整理しています。
+#
+# ※ システム同定（sysid）環境だけはこのファイルに含めず requirements-sysid.txt に分離している。
+#   mujoco.sysid は mujoco>=3.5.0 でのみ提供され、下の mujoco==3.3.4 ピンと競合するため
+#   （同居させると pip の依存解決が失敗する）。理由の詳細は requirements-sysid.txt 冒頭を参照。
 
 # --- Core (必須) ---
 mujoco==3.3.4

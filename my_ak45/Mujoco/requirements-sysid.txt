@@ -1,0 +1,31 @@
+# MuJoCo システム同定（sysid）専用 requirements
+#
+# 用途: AK45-36 の sysid 最適化を行う環境（docs_syid/AK45-36_sysid_作業手順.md フェーズ2〜4）
+#
+# なぜ requirements.txt と分けるか:
+#   requirements.txt は mujoco==3.3.4 を固定しているが、sysid extra（= mujoco.sysid モジュール）は
+#   mujoco 3.5.0 以降でしか提供されない（PyPIメタデータ上、3.4.0 までの provides_extra は usd のみ。
+#   3.5.0 で sysid が追加されている）。同一ファイルに両方書くと pip が依存解決に失敗するため、
+#   環境ごとにファイルを分離した。
+#
+# 補足1: docs_syid/ の Colabノートブック（MuJoCo公式チュートリアルの和訳）にある
+#   `pip install mujoco[sysid] --pre -f https://py.mujoco.org/`
+#   というプレリリース指定は現在は不要。sysid は通常のPyPI安定版に取り込まれている。
+#
+# 補足2: sysid最適化にGPUは不要。最適化は有限差分ヤコビアンによる Gauss-Newton/LM で、
+#   各パラメータ摂動のロールアウトは mujoco.rollout がCPUスレッド並列で実行する
+#   （ノートブック内のGPU設定は Colab 上での動画レンダリング用）。
+#   実行速度に効くのはGPUではなくCPUコア数。
+#
+# 使い方:
+#   pip install -r requirements-sysid.txt
+#   （uv を使う場合: uv pip install -r requirements-sysid.txt）
+
+# sysid extra が matplotlib/scipy/absl-py/plotly/jinja2/pyyaml/tabulate/imageio/colorama を
+# まとめて入れるため、それらの明示指定は不要。
+# TODO: チュートリアルのAPIで動作確認が取れた時点で、>= ではなく実際に動いたバージョンに固定する
+#       （sysid は比較的新しいAPIのため、バージョン間で変わる可能性がある）
+mujoco[sysid]>=3.5.0
+
+# data/raw/ の実機CSVログを読み込んで sysid.TimeSeries に変換するアダプタ用
+pandas
