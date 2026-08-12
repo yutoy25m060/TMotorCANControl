@@ -98,9 +98,16 @@ experiment:
                        # 始まるため速度が飽和域近くまで一気に乗る過渡区間になっており、
                        # sysid_run_check.py が自動検出してWARNを出す。詳細は
                        # .ai/logs/2026-08-13_02_startup-transient-and-auto-check_01.md 参照。
-    dt: 0.001         # サンプリング周期 [秒] (1kHz。本リポジトリでの実機検証実績なし。
-                       #                       ジッタが問題になる場合は 0.002 等に緩めること）
-    report: true      # SoftRealtimeLoopのタイミングレポート（初回実機実行時のジッタ確認のため有効）
+    dt: 0.001         # サンプリング周期 [秒] (1kHz)。2026-08-13に実機で検証済み:
+                       # 10250サイクルで avg error 0.000ms / stddev 0.028ms、sleep時間の割合86.9%。
+                       # CPUに余裕があり、緩める（0.002等にする）必要はない。単発では
+                       # 2.4ms かかるイテレーションが稀に発生する（1.0ms超は0.04%）が、
+                       # SoftRealtimeLoop は絶対時刻を目標とするため直後のサンプルで詰めて
+                       # 自己補正し、遅延は蓄積しない。詳細は
+                       # .ai/logs/2026-08-13_03_timing-report-and-wall-time-column_01.md 参照。
+    report: true      # SoftRealtimeLoopのタイミングレポート（全区間の集計値。ループを break で
+                       # 抜けるため、exp_005 側で del loop により __del__ を明示的に発火させて
+                       # console.log に記録している。サンプル単位のジッタは CSV の wall_time 列を見る）
 
 # CAN 設定
 can:

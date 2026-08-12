@@ -102,18 +102,28 @@ class ExcitationLogger:
     TMotorManager_mit_can 標準の CSV_file 機構は測定値（LOG_FUNCTIONS）のみを記録し、
     このスクリプトが計算した「指令トルク」自体は記録できない。sysid では実機に送った
     指令値そのものが MuJoCo 側で再生する「入力」になるため、明示的に記録する。
+
+    wall_time 列について: t は SoftRealtimeLoop が生成する「予定時刻」（dt を機械的に
+    足しているだけの値で、実際にそのタイミングで通信が完了したかとは無関係。詳細は
+    .ai/logs/2026-08-13_03_* 参照）であるのに対し、wall_time は各行を記録した瞬間の
+    time.time()（ループ開始からの経過秒）で、真の実時刻を独立に記録したもの。
+    差分 wall_time - t が、サンプルごとの実ジッタ（予定からの遅れ）に相当する。
+    SoftRealtimeLoop 自体の report=True によるタイミングレポート（avg/stddev error）は
+    全区間の集計値のみで、どの時刻に遅れが集中したかは分からないため、sysid のデータ
+    整形時に時刻対応を正確に扱いたい場合や、特定区間（起動直後等）のジッタを個別に
+    確認したい場合はこちらを使う。
     """
 
     def __init__(self, csv_file, motor, log_vars):
         self.motor = motor
         self.log_vars = log_vars
-        header = ["t", "desired_torque"] + list(log_vars)
+        header = ["t", "wall_time", "desired_torque"] + list(log_vars)
         self._file = open(csv_file, "w", newline="", encoding="utf-8")
         self._writer = csv.writer(self._file)
         self._writer.writerow(header)
 
-    def log(self, t, desired_torque):
-        row = [t, desired_torque] + [self.motor.LOG_FUNCTIONS[var]() for var in self.log_vars]
+    def log(self, t, wall_time, desired_torque):
+        row = [t, wall_time, desired_torque] + [self.motor.LOG_FUNCTIONS[var]() for var in self.log_vars]
         self._writer.writerow(row)
 
     def close(self):
@@ -155,6 +165,7 @@ with console_log(RUN_DIR):
         with ExcitationLogger(LOG_FILE, motor, LOG_VARS) as logger:
             print("励振開始...")
             loop = make_realtime_loop(dt=DT, report=REPORT)
+            wall_t0 = time.time()  # wall_time 列（真の実時刻）の基準点
 
             for t in loop:
                 # 励振トルクを計算し、コマンド段階の安全弁としてクランプする。
@@ -178,6 +189,10 @@ with console_log(RUN_DIR):
                 except RuntimeError as e:
                     safety_monitor.trigger_emergency_stop(str(e))
                     break
+                # update() 完了直後（＝このイテレーションのCAN送受信が終わった瞬間）の
+                # 実時刻を記録する。t はあくまで予定時刻であり通信の遅延を反映しないため、
+                # 真のジッタはこの wall_time と t の差から後で評価する。
+                wall_time = time.time() - wall_t0
 
                 # ログ記録（指令トルク + 実測値）
                 #
@@ -185,7 +200,7 @@ with console_log(RUN_DIR):
                 # update() は状態を読んでからコマンドを送るため、指令を出す前にその応答を測ることは
                 # 原理的にできず、この1サンプル分のずれはスクリプト側では解消できない。
                 # MuJoCo sysid 用にデータを整形する際に、実測列を1行前に詰めて補正すること。
-                logger.log(t, commanded_torque)
+                logger.log(t, wall_time, commanded_torque)
 
                 # 安全制限チェック（実測値ベースの独立した安全層）
                 exceeded, message = safety_monitor.check()
@@ -218,6 +233,17 @@ with console_log(RUN_DIR):
             actual_samples = loop.n
             print(f"実行時間: {total_time:.2f} 秒")
             print(f"サンプル数: 実測 {actual_samples} / 期待値 {expected_samples}")
+
+            # SoftRealtimeLoop はここまで一度も StopIteration を送出しない（キル
+            # シグナルでのみ止まる設計）ため、上の t >= DURATION での break が唯一の
+            # 正常終了経路であり、これ自体は変更できない。一方 report=True のタイミング
+            # レポート（avg/stddev error 等）は loop.__del__() 内でしか出力されず、
+            # __del__ はガベージコレクトされるまで呼ばれない。loop はこの後もスクリプト
+            # 末尾までグローバル変数として参照が残るため、del しないとレポートは
+            # console_log がstdout/stderrを復元した後（インタプリタ終了時）まで遅延し、
+            # console.log に記録されないまま失われる。ここで明示的に破棄することで
+            # console_log の中で確実に出力・記録させる。
+            del loop  # これで __del__() が呼ばれ、report=True のタイミングレポートが console.log に残る。
 
     print(f"ログ保存完了: {RUN_DIR}")
 

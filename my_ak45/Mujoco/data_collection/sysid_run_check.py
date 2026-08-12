@@ -42,6 +42,15 @@ FD_SLOPE_RANGE = (0.80, 1.25)  # デコード速度 vs 位置有限差分 の回
 POS_RANGE_MIN = 0.20  # 位置の可動範囲の下限 [rad]（小さすぎると摩擦が同定できない）
 SAMPLE_COUNT_FRAC_MIN = 0.99  # 期待サンプル数に対する許容下限
 
+# wall_time 列（実時刻、2026-08-13追加）による実ジッタ評価のしきい値。
+# 実機初回計測（1kHz、10250サイクル）で avg 0.002ms / stddev 0.029ms だったことを基準に、
+# その3倍程度を警告ラインとした（統計的根拠ではなく経験的な余裕）。詳細は
+# .ai/logs/2026-08-13_03_* 参照。
+JITTER_STD_WARN_MS = 0.1
+JITTER_STD_FAIL_MS = 0.3
+JITTER_MAX_WARN_MS = 1.0  # 単一サンプルの最大遅延（CAN再送などスパイク性の遅れを検出）
+JITTER_MAX_FAIL_MS = 3.0
+
 # exp_005_sysid_excitation.py の既定値（単体実行時のフォールバック。
 # 実験スクリプトから呼ぶ場合は必ず実際の値を引数で渡すこと）
 DEFAULT_BASE_FREQ = 4.0
@@ -159,9 +168,41 @@ def check_run(csv_path, base_freq=DEFAULT_BASE_FREQ, harmonic_ratios=DEFAULT_HAR
         )
     else:
         rep.item("1. 取得の完全性", "INFO", f"{len(t)} サンプル, 記録時間 {t[-1]:.2f}s, 公称dt {dt_med * 1000:.2f}ms")
-    # t列はSoftRealtimeLoopの公称時刻であり実時刻ではないため、ここからは実ジッタを測れない
-    if float(np.std(np.diff(t))) < 1e-9:
-        rep.item("   (注)", "INFO", "t列は公称時刻のため実ジッタは評価不可")
+
+    # t列はSoftRealtimeLoopの公称時刻（dtを機械的に足しているだけ）であり、通信の遅延を
+    # 反映しない。実ジッタは独立に記録された wall_time 列（無ければ評価できない。
+    # 2026-08-13以前に取得したCSVには存在しない）から評価する。連続サンプル間の実時間間隔
+    # real_dt と公称dtとの差を見ることで、wall_time と t の基準点のずれ（一定オフセット）に
+    # 影響されずに揺らぎ（ジッタ）だけを取り出せる。
+    if "wall_time" in d.dtype.names:
+        real_dt = np.diff(d["wall_time"]) * 1000  # ms
+        dev = real_dt - dt_med * 1000  # 公称dtからの各サンプルのずれ [ms]
+        jstd, jmean, jmax = float(dev.std()), float(dev.mean()), float(np.abs(dev).max())
+        status = "FAIL" if (jstd > JITTER_STD_FAIL_MS or jmax > JITTER_MAX_FAIL_MS) else (
+            "WARN" if (jstd > JITTER_STD_WARN_MS or jmax > JITTER_MAX_WARN_MS) else "PASS"
+        )
+        worst_i = int(np.argmax(np.abs(dev)))
+        # 最大値だけでは「単発のスパイクか、恒常的な乱れか」が区別できないため個数も出す。
+        # 実機ではCAN再送やOSのスケジューリングで数サンプルだけ遅延することがあるが、
+        # SoftRealtimeLoop は絶対時刻を目標とするため直後のサンプルで詰めて自己補正し、
+        # 遅延は蓄積しない（実測: wall_time - t の乖離は10秒間で増加せず）。
+        n_over = int(np.sum(np.abs(dev) > JITTER_MAX_WARN_MS))
+        rep.item(
+            "   実ジッタ (wall_time)",
+            status,
+            f"平均{jmean:+.3f}ms, 標準偏差{jstd:.3f}ms, 最大{jmax:.3f}ms (t={t[worst_i + 1]:.2f}s付近)"
+            f", {JITTER_MAX_WARN_MS}ms超は{n_over}/{len(dev)}サンプル ({100 * n_over / len(dev):.2f}%)",
+        )
+        if n_over:
+            rep.item(
+                "   (対処)",
+                "INFO",
+                "sysid整形時は t（公称時刻）ではなく wall_time を TimeSeries の時刻軸に使うこと。"
+                "指令トルクは公称tで計算され実際には wall_time の時点で印加されるため、"
+                "wall_time を使えばこのずれは補正される",
+            )
+    else:
+        rep.item("   (注)", "INFO", "wall_time列がないため実ジッタは評価不可（t列は公称時刻）")
 
     # --- 9. 起動過渡（先に判定して、以降の速度評価から除外する区間を決める） ---
     high = np.abs(vel) > VEL_PEAK_WARN
