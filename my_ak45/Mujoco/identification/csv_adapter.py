@@ -121,12 +121,13 @@ def build_sequences(
             "output_torque"（実測値）にすると、モーター内蔵電流ループの定常ゲイン
             K=0.817・一次遅れ T=1.24ms の影響を除いた「純粋な機械パラメータ」が得られるが、
             その絶対スケールは Kt_actual の既知の誤り（公式0.11 Nm/A に対し約+10%）を直接受ける。
-        shift: 実測列を何行前に詰めるか（既定2。根拠は identification/identify.py の
-            DEFAULT_SHIFT のコメント参照）。CSVの各行は「その行で送信した指令」と
-            「その行の先頭で読んだ実測（＝1つ前の指令への応答）」を持ち、MuJoCo の rollout も
-            sensor[i] = ctrl[0..i-1] への応答 という因果性を構造的に持つ。したがって
-            sysid_run_check.py が実測した3サンプル分の遅れのうち1サンプルは rollout 側で
-            既に吸収されており、ここで補正すべき残りは2サンプルになる。
+        shift: 実測列を何行前に詰めるか（既定2）。CSV上の指令と実測のずれは
+            「記録の帳簿上のずれ1サンプル」＋「電流ループの物理的なむだ時間 約1.9サンプル
+            （L=1.82〜1.87ms）」に分解でき、前者は MuJoCo の rollout が同じ規約
+            （sensor[i] = ctrl[0..i-1] への応答）を持つため自動的に合う。したがって
+            ここで補正するのは後者だけで約2サンプルになる。
+            リポジトリ内の「1行」「3行」という記述との関係を含む詳細は
+            identification/identify.py の DEFAULT_SHIFT のコメントを参照。
         crossing_offset: segment_starts() に渡す（切り出し点を変えた頑健性確認用）
         run_label: シーケンス名の接頭辞。省略時はCSVの親ディレクトリ名。
 
