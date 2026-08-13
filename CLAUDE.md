@@ -43,8 +43,26 @@ environment management. Everything is hardware-in-the-loop: there is no simulato
   `data_collection/exp_005_sysid_excitation.py` runs on the Pi against real motors (it reuses
   `control_mit_can/lib/` via a `sys.path` insert rather than duplicating it) and writes multi-sine excitation
   captures into `data/raw/` — unlike `control_mit_can/logs/`, `my_ak45/Mujoco/` has no `.gitignore`, so this
-  data *is* tracked and pulled by the PC side. `docs_syid/` holds the sysid work plan and reference material.
-  Not wired into the main package.
+  data *is* tracked and pulled by the PC side. `data_collection/sysid_run_check.py` runs automatically at the end
+  of `exp_005_sysid_excitation.py` (exceptions from it are swallowed to a warning, not a script failure) and
+  gives a PASS/WARN/FAIL verdict across 11 checks (velocity saturation, torque linearity, sign reversal,
+  frequency-response decomposition, startup transient, thermal margin, etc.); a FAIL means the run should not be
+  used for sysid. 1kHz control (`dt=0.001`) is now confirmed viable on real Raspberry Pi hardware — the
+  `SoftRealtimeLoop` timing report is captured into `console.log` via an explicit `del loop` (it only prints from
+  `__del__`, and the loop exits via `break` rather than normal iteration, so without this it never printed), and
+  the CSV's `wall_time` column (actual completion time per sample, alongside the nominal/scheduled `t`) lets
+  per-sample jitter be evaluated after the fact — CSVs recorded before 2026-08-13 lack this column and fall back
+  to a coarser check. Jitter judged as one-off spikes (a few samples per run exceeding ~1ms, traced to ordinary
+  Linux/non-RT-OS scheduling noise, not the script) turned out to self-correct within a couple of samples and not
+  accumulate, so `sysid_run_check.py`'s FAIL criterion was recalibrated from "any single spike over a fixed
+  ceiling" to "sustained drift in `wall_time - t`" — occasional WARN-level spikes are expected and not a problem.
+  `duration` in `config.yaml` is `10.25` s (not 10.0) to give the multi-sine excitation's startup transient
+  (~0.1–0.14s of unrepresentative high-speed motion right after a cold start) room to be discarded while still
+  meeting a 10.0s usable-data target. Known open issue: motor temperature trends upward (~68°C observed) across
+  repeated back-to-back runs, with 75°C as the hard limit — space out consecutive captures. `docs_syid/` holds the
+  sysid work plan and reference material, including a phase-3 note that the 10s captures likely need to be split
+  into ~0.5–1s sub-sequences before fitting, since open-loop trajectory divergence between two nominally-identical
+  runs grows large over a full 10s span. Not wired into the main package.
 - `my_ak45/wire_mechanism/` — a from-scratch physics module (not just docs) modeling a planned wire/tendon-driven
   quadruped joint, developed in phases per `my_ak45/docs_mechanism/ワイヤー駆動関節の運動学と定滑車配置の検討.md`:
   Phase A (coordinate/sign conventions) and Phase A-2 (drive-mechanism choice — gravity-torque sign analysis over
