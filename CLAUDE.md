@@ -21,19 +21,47 @@ environment management. Everything is hardware-in-the-loop: there is no simulato
   intended as copy-paste starting points and as the reference for correct API usage.
 - `my_ak45/control_mit_can/` — a personal AK45-36 experimentation workspace built on top of the package: numbered
   templates (`0_template_basic.py`, `1_template_impedance.py`, `2_template_current.py`) meant to be copied into
-  `experiments/exp_NNN_description.py`, driven by a shared `config.yaml`, logging CSVs to `logs/` (gitignored).
-  Common code shared by templates and experiment scripts lives in `lib/`: `config_loader.py` (resolves
-  `config.yaml` relative to the module file, not `cwd`, so it works from either `control_mit_can/` or
-  `control_mit_can/experiments/`), `motor_setup.py` (single/multi-motor init), `logging_utils.py` (log path
-  naming, `SoftRealtimeLoop` control-loop setup), `sync_logger.py` (`SyncMultiMotorLogger`, records multiple
-  motors on one shared timeline/CSV — `TMotorManager_mit_can`'s own per-motor CSV logging has an independent
-  `pi_time` origin per motor, which doesn't line up across motors), and `safety_monitor.py` (`SafetyMonitor`,
-  cross-motor position/velocity/torque limit checks and `power_off()`-all emergency stop — not all
-  templates/experiments use it yet). See `my_ak45/control_mit_can/README_ja.md` for the full workflow.
-- `my_ak45/Mujoco/` — separate, early-stage system-identification work using MuJoCo; not wired into the main
-  package.
-- `my_ak45/docs_mechanism/`, `my_ak45/quadruped_prep_ja.md` — Japanese-language design notes for a planned
-  wire-driven quadruped built on this stack; advisory/planning documents only, nothing here is implemented yet.
+  `experiments/exp_NNN_description.py` (currently `exp_001_gain_tuning.py` … `exp_004_trajectory.py`,
+  `exp_006_thermal_baseline_check.py`, `exp_007_thermal_baseline_multi.py`; `exp_005_sysid_excitation.py` has
+  since moved to `my_ak45/Mujoco/data_collection/`, see below), driven by a shared `config.yaml`. Common code
+  shared by templates and experiment scripts lives in `lib/`: `config_loader.py` (resolves `config.yaml` relative
+  to the module file, not `cwd`, so it works from either `control_mit_can/` or `control_mit_can/experiments/`),
+  `motor_setup.py` (single/multi-motor init), `logging_utils.py` (`make_run_dir(name)` creates one
+  `logs/{name}_{timestamp}/` folder per script run; `make_log_path(run_dir, filename)` resolves a file inside
+  it; `console_log(run_dir)` is a context manager that tees `stdout`/`stderr` — including uncaught-exception
+  tracebacks — into `run_dir/console.log` alongside the CSV(s)), `sync_logger.py` (`SyncMultiMotorLogger`,
+  records multiple motors on one shared timeline/CSV — `TMotorManager_mit_can`'s own per-motor CSV logging has
+  an independent `pi_time` origin per motor, which doesn't line up across motors), and `safety_monitor.py`
+  (`SafetyMonitor`, cross-motor position/velocity/torque/temperature checks and `power_off()`-all emergency
+  stop — not all templates/experiments use it yet; its temperature check is a backstop since
+  `TMotorManager_mit_can.update()` already raises `RuntimeError` on its own `max_temp`, so callers that call
+  `update()` per motor before `check()` should wrap `update()` in `try/except RuntimeError` and route into
+  `trigger_emergency_stop()`, as `exp_003`/`exp_007` do). `logs/` itself is gitignored (`*.csv`/`*.log` recurse
+  into the per-run subfolders). See `my_ak45/control_mit_can/README_ja.md` for the full workflow.
+- `my_ak45/Mujoco/` — system-identification work using the MuJoCo sysid toolbox, split across a Raspberry Pi
+  (real-hardware data capture) and a separate GPU-equipped PC (optimization), with the repo as the hand-off:
+  `data_collection/exp_005_sysid_excitation.py` runs on the Pi against real motors (it reuses
+  `control_mit_can/lib/` via a `sys.path` insert rather than duplicating it) and writes multi-sine excitation
+  captures into `data/raw/` — unlike `control_mit_can/logs/`, `my_ak45/Mujoco/` has no `.gitignore`, so this
+  data *is* tracked and pulled by the PC side. `docs_syid/` holds the sysid work plan and reference material.
+  Not wired into the main package.
+- `my_ak45/wire_mechanism/` — a from-scratch physics module (not just docs) modeling a planned wire/tendon-driven
+  quadruped joint, developed in phases per `my_ak45/docs_mechanism/ワイヤー駆動関節の運動学と定滑車配置の検討.md`:
+  Phase A (coordinate/sign conventions) and Phase A-2 (drive-mechanism choice — gravity-torque sign analysis over
+  the planned ±90° range showed no sign reversal, so a single unidirectional wire suffices; antagonistic pairs
+  are only needed for wider ranges, out of scope) are decided; Phase B (`wire_kinematics.py` — pure-function
+  geometry: `pulley_polar_from_xy`, `anchor_angle`, `included_angle`, `wire_length`, `moment_arm`,
+  `solve_wire_geometry`) and Phase C (`wire_statics.py` — quasi-static `gravity_torque()` /
+  `solve_wire_tension()`) are implemented and unit-tested; Phase D (pulley-placement grid search) is not started.
+  `plotting.py` renders Phase B/C quantities via matplotlib (dev-only dependency). **Known unresolved bug**:
+  `wire_kinematics.pulley_polar_from_xy()`'s `theta_pulley` sign doesn't match `theta_anchor`'s convention, so
+  `solve_wire_geometry().l_wire` can disagree with the true Euclidean distance for off-axis pulley coordinates —
+  tracked by an `xfail(strict=True)` test in `tests/test_wire_kinematics.py`; do not build Phase D on top of this
+  without resolving it first (see `.ai/logs/2026-08-06_02_wire-statics-phasec-impl_01.md`). Tests run via
+  `uv run pytest` (see Environment & commands below).
+- `my_ak45/docs_mechanism/`, `my_ak45/quadruped_prep_ja.md` — Japanese-language design/planning notes for the
+  wire-driven quadruped described above; `docs_mechanism/` now tracks an implementation (`wire_mechanism/`) as
+  design decisions land, `quadruped_prep_ja.md` remains advisory-only.
 - `my_ak45/control_mit_can/docs/`, `my_ak45/control_mit_can/docs_mit_can/` — Notion-exported personal notes on
   real-hardware bring-up (Raspberry Pi 5 + Waveshare 2-CH CAN HAT wiring/setup) and MIT-control theory/API usage.
   **Not authoritative for AK45-36 numeric specs**: the velocity/torque limits quoted in these docs disagree with
@@ -60,8 +88,13 @@ environment management. Everything is hardware-in-the-loop: there is no simulato
   range, not a safe operating limit — don't command near these in real experiments). This prompted lowering
   `my_ak45/control_mit_can/config.yaml`'s `safety.max_velocity` from 10.0 to 6.0 rad/s. See
   `.ai/logs/2026-08-05_03_ak45-36-firmware-export-crosscheck_01.md` and
-  `.ai/logs/2026-08-05_04_official-datasheet-crosscheck_01.md`. Don't copy numeric AK45-36 specs from these
-  docs into code/config without cross-checking `mit_can.py`.
+  `.ai/logs/2026-08-05_04_official-datasheet-crosscheck_01.md`. **`V_max`/`V_min` is now resolved**: real
+  multi-motor hardware logs showed decoded velocity running ~5.5–6x faster than a sensor-independent
+  finite-difference estimate from position, converging with the manual value and the datasheet's no-load speed;
+  `MIT_Params["AK45-36"]["V_max"]`/`["V_min"]` were changed from `30.0`/`-30.0` to `6.0`/`-6.0` accordingly (see
+  `.ai/logs/2026-08-11_05_v_max_correction_01.md`) — this also tightens the speed-mode RuntimeError threshold in
+  `set_output_velocity_radians_per_second()`. `T_max`/`Kt_TMotor` remain unresolved; don't copy numeric AK45-36
+  specs from these docs into code/config without cross-checking `mit_can.py`.
 - `docs/` — Sphinx docs. `docs/source/` is the source (autodoc against the three driver modules); `docs/build/`
   is the generated, committed HTML output — regenerate it rather than hand-editing.
 - `dist/` — a committed built wheel/sdist snapshot. `__pycache__/` at the repo root is also committed (legacy
@@ -95,17 +128,28 @@ uv export --no-dev --format requirements-txt -o requirements.txt
 
 # build Sphinx docs
 cd docs && make html   # Windows: make.bat html
+
+# run the wire_mechanism unit tests (the only pytest suite in this repo)
+uv run pytest -v
 ```
 
 Ruff config (`pyproject.toml` `[tool.ruff]`): target `py311`, rules `E`, `F`, `I` enabled, `E501` (line length)
-ignored, double-quote string style.
+ignored, double-quote string style. `requires-python = ">=3.9,<3.14"` (raised from `>=3.8` for `matplotlib`
+compatibility); dev dependencies are `pytest`, `ruff`, `matplotlib`.
 
-There is no automated test suite (no pytest, no CI test job). "Testing" a change means:
+The installable `TMotorCANControl` package itself has **no automated test suite** (no CI test job — hardware is
+required). "Testing" a change to `src/TMotorCANControl/` means:
 1. `ruff check .` passes.
 2. The package still imports (`python -c "import TMotorCANControl"`).
 3. Where feasible, the relevant script under `demos/` or `src/TMotorCANControl/test/` runs against real hardware.
    Since CI/sandboxed environments have no CAN bus or serial device attached, hardware verification usually can't
    be done here — say so explicitly rather than claiming a control-mode change was "tested."
+
+The one exception is `my_ak45/wire_mechanism/` (pure math, no hardware): it has a real `pytest` suite under
+`my_ak45/wire_mechanism/tests/`, wired up via `[tool.pytest.ini_options]` (`pythonpath = ["my_ak45"]`,
+`testpaths = ["my_ak45/wire_mechanism/tests"]`) so tests import as `from wire_mechanism import wire_kinematics`.
+Run it with `uv run pytest -v` before changing anything under `wire_mechanism/`; note the deliberate
+`xfail(strict=True)` covering the known `pulley_polar_from_xy` sign bug mentioned above.
 
 ## Architecture
 
@@ -131,7 +175,11 @@ Each module follows the same internal shape:
   singletons (documented gotcha: `__init__` would run twice).
 - A `motorListener`/notifier callback that routes incoming CAN frames to the right motor instance's async state.
 - The public `TMotorManager_*` class: a context manager (`__enter__`/`__exit__`) that powers the motor on/off and
-  is the only supported way to drive a motor — control code should always run inside a `with TMotorManager_*(...) as dev:` block so the motor is guaranteed to power off on exception or exit.
+  is the only supported way to drive a motor — control code should always run inside a `with TMotorManager_*(...) as dev:` block so the motor is guaranteed to power off on exception or exit. `TMotorManager_mit_can.__enter__()`
+  retries its connection check up to 3 times (0.5s apart) before raising — observed on real hardware, a motor
+  that hasn't received any CAN traffic yet ("cold") is slow to answer the first control-mode-start command, so a
+  first-run failure right after a fresh `ip link up` is expected and self-heals on retry rather than indicating a
+  wiring problem.
 - An internal `_TMotorManState` (or `_TMotorManState_Servo` / `SERVO_SERIAL_CONTROL_STATE`) enum tracks which
   control mode is currently active (IDLE / IMPEDANCE / CURRENT / FULL_STATE / SPEED, or servo's
   duty/current/RPM/position/position-velocity modes); `update()` asserts the manager is in a mode consistent with
