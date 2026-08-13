@@ -1,0 +1,71 @@
+<mujoco model="ak45_36_joint">
+  <!--
+    AK45-36 単軸・開ループトルク実験用の最小モデル（フェーズ2）。
+
+    data_collection/exp_005_sysid_excitation.py が記録するCSV列
+    (output_angle, output_velocity, output_torque, desired_torque) は
+    TMotorManager_mit_can 側で GEAR_RATIO・Kt_actual 変換済みの出力軸側
+    （post-gearbox）の値であるため、本モデルもギア比を挟まず出力軸側で 直接トルクを受け取る1関節構成にしている（gear="1" の motor アクチュエータ）。 実験は純トルク指令（kp=kd=0）の開ループで、アームや外部負荷を持たない
+    素の出力軸の空転挙動を記録したものなので、worldbody の質量・慣性は
+    ごく小さいプレースホルダー値とし、実体の慣性は joint の armature
+    （リフレクトされたロータ慣性、フェーズ3で同定する未知パラメータ）側に
+    持たせている。damping/frictionloss も同様にプレースホルダーで、
+    作業手順書フェーズ3の方針どおり最初は armature のみを同定対象にする
+    （このXML上の値は固定の初期値であり、最適化時に上書きされる）。
+
+    range は物理的なメカストップの実測値ではなく、config.yaml
+    safety.max_position（±3.14 rad）を流用した安全側の目安。
+  -->
+  <!-- compilerとは、MuJoCoのモデルコンパイル時の設定を指定するオプション。angle="radian" は 角度の単位をラジアンに統一するための設定。autolimits="true" は
+       joint range を超えた場合に自動的に joint limit force を発生させるかどうかのフラグ。
+       フェーズ2では実機側で安全側の制限をかけているため、ここでは無効化している。
+  -->
+  <compiler angle="radian" autolimits="true"/>
+
+  <!-- timestep はPi実機の1kHzサンプリング(config.yaml experiment.sysid_excitation.dt)に
+       合わせている。sysid.TimeSeries はリサンプリングにも対応するため必須ではないが、
+       揃えておけばフェーズ3のCSVアダプタでの補間が不要になる。 -->
+  <!-- integrator とは、速度・位置の更新方法を指定するオプション。MuJoCo では3種類が用意されている。
+       1. explicit: 速度・位置を順次更新する古典的なオイラー法。高速だが不安定。
+       2. implicit: 速度・位置を同時に解く陰解法。安定だが遅い。
+       3. implicitfast: implicit の近似版。安定かつ高速で、フェーズ2のような
+          単関節の空転挙動のシミュレーションには十分な精度が得られる。
+  -->
+  <!--contactとは衝突判定の有効/無効を指定するオプション。フェーズ2では実機側で安全側の制限をかけているため、ここでは無効化している。
+  -->
+  <option integrator="implicitfast" timestep="0.001">
+    <flag contact="disable"/>
+  </option>
+
+  <!-- worldbody とは、MuJoCo の物理シミュレーション空間に配置される物体の定義をまとめたセクション。 -->
+  <worldbody>
+    <body name="output_shaft" pos="0 0 0">      <!-- output_shaft とは、AK45-36 の出力軸の回転中心を表す body。 -->
+      <!-- プレースホルダー値。実体の慣性は joint armature が担う（上記コメント参照）。 -->
+      <!-- inertial とは、body の質量・慣性を定義する要素。pos は重心位置、mass は質量、diaginertia は慣性テンソルの対角成分を表す。 -->
+      <inertial pos="0 0 0" mass="0.05" diaginertia="1e-5 1e-5 1e-5"/>
+      <!-- joint とは、body 間の相対運動を定義する要素。name は関節名、type は関節の種類（hinge は回転関節）、axis は回転軸の方向、range は可動範囲、armature はリフレクトされたロータ慣性、damping は減衰係数、frictionloss は摩擦損失を表す。 -->
+      <joint name="ak45_joint" type="hinge" axis="0 0 1" range="-3.14 3.14" armature="0.01" damping="0.05" frictionloss="0.0"/>
+      <!-- geom とは、body の形状を定義する要素。type は形状の種類（cylinder は円柱）、size は半径と高さ、rgba は色と透明度を表す。 -->
+      <geom type="cylinder" size="0.02 0.01" rgba="0.6 0.6 0.6 1"/>
+    </body>
+  </worldbody>
+
+  <!-- actuator とは、関節に作用するアクチュエータ（モータやトルク源）を定義するセクション。 -->
+  <actuator>
+    <!-- gear="1": 実機側で既にGEAR_RATIO・Kt_actual換算済みの出力軸トルク[Nm]を
+         そのまま受け取る（motor.set_output_torque_newton_meters() と同じ単位系）。 -->
+    <!-- フェーズ2では実機側で安全側の制限をかけているため、ここでは無効化している。 -->
+    <!-- name はアクチュエータ名、joint は作用する関節名、gear はギア比を表す。 -->
+    <motor name="joint_torque" joint="ak45_joint" gear="1"/>
+  </actuator>
+
+  <!-- sensor とは、関節の状態を計測するセンサーを定義するセクション。 -->
+  <sensor>
+    <!-- センサー名をCSV列名と一致させ、フェーズ3で sysid.TimeSeries.from_names() による
+         名前ベースの自動マッピングをそのまま使えるようにしている。 -->
+    <!-- jointpos は関節角度を計測するセンサー。 -->
+    <jointpos name="output_angle" joint="ak45_joint"/>
+    <!-- jointvel は関節速度を計測するセンサー。 -->
+    <jointvel name="output_velocity" joint="ak45_joint"/>
+  </sensor>
+</mujoco>

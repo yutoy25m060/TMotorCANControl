@@ -37,6 +37,12 @@ dev = [
     "ruff>=0.15.1",
     "matplotlib>=3.8.0",
 ]
+# my_ak45/Mujoco/ の sysid 作業用（AK45-36_sysid_作業手順.md フェーズ2〜4）。
+# mujoco.sysid モジュールは mujoco 3.5.0 で追加された。my_ak45/Mujoco/requirements.txt に
+# ある RL(gymnasium等)/MJX-JAX/PyQt6 等の統合依存は sysid作業には不要なため含めない。
+mujoco-sysid = [
+    "mujoco[sysid]>=3.5.0",
+]
 
 # ▼ これを pyproject.toml の一番下に追記 2026/02/13 ▼
 

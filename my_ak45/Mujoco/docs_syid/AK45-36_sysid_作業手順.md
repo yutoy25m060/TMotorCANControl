@@ -54,18 +54,33 @@ Windows PC（Piをリモート操作している側の母艦）で行う。こ�
 
 ### フェーズ2: MuJoCo最小モデルの作成 【Windows PC】
 
-6. [ ] Windows PC に環境をインストール: `pip install -r my_ak45/Mujoco/requirements.txt`
-       - `mujoco[sysid]`（= `mujoco.sysid` モジュール）は **mujoco 3.5.0 以降**でのみ提供される。
-         旧来の `mujoco==3.3.4` ピンには理由の記録がなく、3.5.0台への引き上げに支障がなかったため
-         `requirements.txt` 自体を `mujoco[sysid]>=3.5.0` に更新して統合済み（別ファイルへの分離は撤回）
-       - 公式ノートブックにある `--pre -f https://py.mujoco.org/` は現在不要
-         （sysid は通常のPyPI安定版に取り込み済み）
+6. [x] Windows PC に環境をインストール（2026-08-13、方針変更）
+       - **`requirements.txt`（pip）ではなく、メインパッケージと同じ `uv` 環境に統合した。**
+         `pyproject.toml` の `[dependency-groups]` に `mujoco-sysid = ["mujoco[sysid]>=3.5.0"]`
+         を新設し、`uv sync --group mujoco-sysid` でインストール済み（mujoco 3.11.0）。
+         「未確定事項」にあった uv/pip の選択は uv に確定。
+       - `my_ak45/Mujoco/requirements.txt`（RL/JAX-MJX/PyQt6等を含む統合版、pip用）は
+         sysid作業には過剰なため今回は使わず、変更もしていない。他用途で必要になった場合はそちらを使う。
+       - 公式ノートブックにある `--pre -f https://py.mujoco.org/` は不要だった
+         （sysid は通常のPyPI安定版に取り込み済み。3.5.0以降 provides_extra に `sysid` あり）
        - GPU関連パッケージはsysid最適化には不要（上記「前提・役割分担」の補足を参照）
-7. [ ] AK45-36 用の単一ヒンジ + トルクアクチュエータの最小XMLモデルを新規作成する
-       （`docs_syid/sysid_mujoco_vscodeへの移設コード途中.py` のARM_XML/SPRING_MASS_XMLが
-       雛形になる）。`GEAR_RATIO=36.0` など `MIT_Params["AK45-36"]`（`src/TMotorCANControl/mit_can.py`）
-       の値を初期値の参考にする
-8. [ ] 位置・速度センサーをXMLに定義する
+7. [x] AK45-36 用の単一ヒンジ + トルクアクチュエータの最小XMLモデルを作成した
+       （`my_ak45/Mujoco/models/ak45_36_joint.xml`。`docs_syid/sysid_mujoco_vscodeへの移設コード途中.py`
+       のARM_XMLが雛形）。`exp_005_sysid_excitation.py` のCSV列（`output_angle`/`output_velocity`/
+       `output_torque`/`desired_torque`）が `TMotorManager_mit_can` 側で `GEAR_RATIO`/`Kt_actual`
+       換算済みの出力軸側の値であることに合わせ、モデルもギアを挟まず出力軸側で直接トルクを
+       受け取る1関節構成（`gear="1"`）にした。実験がアーム等の外部負荷を持たない素の出力軸の
+       空転挙動（純トルク開ループ）であることから、worldbodyの質量・慣性はプレースホルダーの
+       極小値とし、実体の慣性は同定対象となる `joint armature` 側に持たせる設計にした
+       （`damping`/`frictionloss` もフェーズ3方針どおりのプレースホルダー固定値）。
+       `timestep=0.001` は実機サンプリング（`config.yaml` `dt`）に合わせた。
+8. [x] 位置・速度センサーをXMLに定義した（`jointpos`/`jointvel`、センサー名をCSV列名
+       `output_angle`/`output_velocity` と一致させ、`sysid.TimeSeries.from_names()` の
+       名前ベース自動マッピングがフェーズ3でそのまま使えるようにした）
+       - `uv run python` で `spec.compile()` → `mujoco.mj_step()` の単発実行、および
+         励振と同じ multi-sine トルクでの `mujoco.rollout.rollout()` →
+         `sysid.TimeSeries.from_names()` の疎通を確認済み（`signal_mapping` が
+         `output_angle`/`output_velocity` を正しく解決）
 
 ### フェーズ3: 同定パラメータの定義と最適化 【Windows PC】
 
@@ -121,12 +136,16 @@ Windows PC（Piをリモート操作している側の母艦）で行う。こ�
 
 - `my_ak45/Mujoco/data/raw/` のCSVはサンプルレート次第で1ファイルあたり数百KB〜数MB程度になりうる
   （1kHz×10秒＝10,000行）。試行数が増えた場合にリポジトリサイズへの影響を再検討する
-- ~~Windows PC側の `mujoco[sysid]` インストール方法~~ → `requirements.txt` を
-  `mujoco[sysid]>=3.5.0` + `pandas` に更新して確定。ただし uv/pip どちらで管理するかは未決定。
-  また `>=3.5.0` は下限のみの指定であり、チュートリアルのAPIで実際に動作確認が取れた時点で
+- ~~Windows PC側の `mujoco[sysid]` インストール方法~~ →
+  ~~`requirements.txt` を `mujoco[sysid]>=3.5.0` + `pandas` に更新して確定~~ →
+  **2026-08-13に再確定**: `pyproject.toml` `[dependency-groups]` の `mujoco-sysid` として
+  メインパッケージと同じ `uv` 環境に統合（`uv sync --group mujoco-sysid`）。
+  `my_ak45/Mujoco/requirements.txt`（pip、RL/JAX-MJX/PyQt6等含む統合版）は変更せず残置。
+  `>=3.5.0` は下限のみの指定であり、チュートリアルのAPIで実際に動作確認が取れた時点で
   そのバージョンに固定すること（sysid は新しいAPIのため変更されている可能性がある）
-- フェーズ2のXMLモデルをどこまで詳細化するか（単一関節のみか、将来的な脚機構を見据えるか）は
-  `my_ak45/docs_mechanism/`・`quadruped_prep_ja.md` の計画次第で変わりうる
+- ~~フェーズ2のXMLモデルをどこまで詳細化するか~~ → 2026-08-13時点では単一ヒンジ関節のみ
+  （`my_ak45/Mujoco/models/ak45_36_joint.xml`）。将来的な脚機構を見据えた詳細化は
+  `my_ak45/docs_mechanism/`・`quadruped_prep_ja.md` の計画次第で別途検討
 - フェーズ3の軌道分割（0.5〜1秒区間、`ModelSequences` への複数シーケンス投入）は方針決定のみで
   実装は未着手。区間長の最適値（4.5%〜8.8%の再現不能ずれのどこで手を打つか）も未確定
 - `sysid_run_check.py` のしきい値は現時点の実機データ2セット（飽和域・非飽和域）からの
