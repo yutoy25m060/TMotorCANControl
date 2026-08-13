@@ -344,16 +344,16 @@ def check_run(csv_path, base_freq=DEFAULT_BASE_FREQ, harmonic_ratios=DEFAULT_HAR
     lags = [(lag, float(np.corrcoef(cc[: len(cc) - lag], mm[lag:])[0, 1])) for lag in range(0, 15)]
     best_lag, best_r = max(lags, key=lambda x: x[1])
     # このラグは「記録の帳簿上のずれ（1サンプル。update() が状態読み取り→送信の順のため）」と
-    # 「電流ループの物理的なむだ時間（下記7のL）」の合計であり、しかも1ms刻みの粗い測定なので
-    # 一次遅れTの寄与も混じって実際よりやや大きく出る。MuJoCo の rollout は前者と同じ規約
-    # （sensor[i] = ctrl[0..i-1] への応答）を持ち帳簿上の1サンプルを自動で吸収するため、
-    # sysid の整形で実際に詰めるべき行数はこの値そのものではなく、下記7の L 相当（実測で約2行）。
-    # 詳細は my_ak45/Mujoco/identification/identify.py の DEFAULT_SHIFT のコメント参照。
+    # 「電流ループの物理的なむだ時間（下記7のL、約1.9サンプル）」の合計であり、CSVを静的に
+    # 扱う限りこの値（約3行）が正しい補正量。ただし sysid の整形で明示的に指定する行数は2で
+    # あって3ではない。これは sysid_rollout の時刻付け（sensordata の先頭が初期状態なのに
+    # 時刻は dt から始まる）によって約1サンプル分が暗黙に補正されるためで、上の「1サンプル」
+    # とは別物。詳細は my_ak45/Mujoco/identification/identify.py の DEFAULT_SHIFT のコメント参照。
     rep.item(
         "6. 指令-実測の遅れ",
         "PASS" if best_r >= XCORR_MIN else ("WARN" if best_r >= 0.97 else "FAIL"),
         f"相互相関ピーク {best_lag * dt_med * 1000:.0f}ms (相関 {best_r:.4f}, ラグ0で {lags[0][1]:.4f})。"
-        f" この値は帳簿上のずれ1行と物理的なむだ時間(下記7のL)の合計。sysid整形で詰めるのはL相当のみ（実測で約2行）",
+        f" この値は帳簿上のずれ1行と物理的なむだ時間(下記7のL)の合計。sysid整形で明示指定するshiftは2（残り1行はMuJoCo側が暗黙に補正）",
     )
 
     # --- 7. 周波数応答（K/T/L 分解） ---

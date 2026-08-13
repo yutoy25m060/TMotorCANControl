@@ -1,0 +1,161 @@
+[
+  {
+    "stage": 0,
+    "held_out": "exp005_sysid_excitation_1786575616",
+    "params": {
+      "armature": 0.01,
+      "frictionloss": 0.0,
+      "damping": 0.0
+    },
+    "train_cost": null,
+    "rms_pos": 0.262121470716584,
+    "rms_vel": 1.143983517311908,
+    "max_pos": 0.4589796650295481,
+    "n_samples": 7972
+  },
+  {
+    "stage": 0,
+    "held_out": "exp005_sysid_excitation_1786575633",
+    "params": {
+      "armature": 0.01,
+      "frictionloss": 0.0,
+      "damping": 0.0
+    },
+    "train_cost": null,
+    "rms_pos": 0.267621649027478,
+    "rms_vel": 1.1631239850925537,
+    "max_pos": 0.47109599106507116,
+    "n_samples": 7973
+  },
+  {
+    "stage": 0,
+    "held_out": "exp005_sysid_excitation_1786575782",
+    "params": {
+      "armature": 0.01,
+      "frictionloss": 0.0,
+      "damping": 0.0
+    },
+    "train_cost": null,
+    "rms_pos": 0.2655505635274256,
+    "rms_vel": 1.1576061098333397,
+    "max_pos": 0.49422420804552103,
+    "n_samples": 7974
+  },
+  {
+    "stage": 1,
+    "held_out": "exp005_sysid_excitation_1786575616",
+    "params": {
+      "armature": 0.015739038525363448
+    },
+    "train_cost": 10.506635770078127,
+    "rms_pos": 0.14004978496095424,
+    "rms_vel": 0.7043673390325303,
+    "max_pos": 0.2840745158610811,
+    "n_samples": 7972
+  },
+  {
+    "stage": 1,
+    "held_out": "exp005_sysid_excitation_1786575633",
+    "params": {
+      "armature": 0.01584507452071681
+    },
+    "train_cost": 10.743108438230475,
+    "rms_pos": 0.14292350135052703,
+    "rms_vel": 0.7159672600846423,
+    "max_pos": 0.3010736722151198,
+    "n_samples": 7973
+  },
+  {
+    "stage": 1,
+    "held_out": "exp005_sysid_excitation_1786575782",
+    "params": {
+      "armature": 0.015739451244150594
+    },
+    "train_cost": 10.281766134302156,
+    "rms_pos": 0.14624248998694167,
+    "rms_vel": 0.7202780324826781,
+    "max_pos": 0.30795777263155366,
+    "n_samples": 7974
+  },
+  {
+    "stage": 2,
+    "held_out": "exp005_sysid_excitation_1786575616",
+    "params": {
+      "armature": 0.012497476346361959,
+      "frictionloss": 0.16097947701998055
+    },
+    "train_cost": 0.23512902035739514,
+    "rms_pos": 0.014899288125730064,
+    "rms_vel": 0.1004416551767299,
+    "max_pos": 0.07579824784829747,
+    "n_samples": 7972
+  },
+  {
+    "stage": 2,
+    "held_out": "exp005_sysid_excitation_1786575633",
+    "params": {
+      "armature": 0.012488305520125524,
+      "frictionloss": 0.15952047269884193
+    },
+    "train_cost": 0.21605041367232325,
+    "rms_pos": 0.018703153614469187,
+    "rms_vel": 0.10853555907480024,
+    "max_pos": 0.0944183208896422,
+    "n_samples": 7973
+  },
+  {
+    "stage": 2,
+    "held_out": "exp005_sysid_excitation_1786575782",
+    "params": {
+      "armature": 0.012504916343831246,
+      "frictionloss": 0.15890149210285281
+    },
+    "train_cost": 0.21664926847378765,
+    "rms_pos": 0.0159272403254681,
+    "rms_vel": 0.11002258551507886,
+    "max_pos": 0.06314652644321028,
+    "n_samples": 7974
+  },
+  {
+    "stage": 3,
+    "held_out": "exp005_sysid_excitation_1786575616",
+    "params": {
+      "armature": 0.0127473774258581,
+      "frictionloss": 0.09925716088916538,
+      "damping": 0.02698815490247902
+    },
+    "train_cost": 0.15635613758686628,
+    "rms_pos": 0.008619097255431241,
+    "rms_vel": 0.0811236964595081,
+    "max_pos": 0.02443564977548862,
+    "n_samples": 7972
+  },
+  {
+    "stage": 3,
+    "held_out": "exp005_sysid_excitation_1786575633",
+    "params": {
+      "armature": 0.01273412631341162,
+      "frictionloss": 0.09973737694536242,
+      "damping": 0.025973432696563898
+    },
+    "train_cost": 0.14566662148524706,
+    "rms_pos": 0.012915219691883618,
+    "rms_vel": 0.08687157944140463,
+    "max_pos": 0.04213518520484705,
+    "n_samples": 7973
+  },
+  {
+    "stage": 3,
+    "held_out": "exp005_sysid_excitation_1786575782",
+    "params": {
+      "armature": 0.01277095521066879,
+      "frictionloss": 0.0934165762131604,
+      "damping": 0.028445014377808185
+    },
+    "train_cost": 0.12836517692968724,
+    "rms_pos": 0.013197280802531672,
+    "rms_vel": 0.09574578368661915,
+    "max_pos": 0.04583044165259287,
+    "n_samples": 7974
+  }
+]

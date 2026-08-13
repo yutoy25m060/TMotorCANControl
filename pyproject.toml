@@ -38,10 +38,22 @@ dev = [
     "matplotlib>=3.8.0",
 ]
 # my_ak45/Mujoco/ の sysid 作業用（AK45-36_sysid_作業手順.md フェーズ2〜4）。
-# mujoco.sysid モジュールは mujoco 3.5.0 で追加された。my_ak45/Mujoco/requirements.txt に
-# ある RL(gymnasium等)/MJX-JAX/PyQt6 等の統合依存は sysid作業には不要なため含めない。
+# my_ak45/Mujoco/requirements.txt にある RL(gymnasium等)/MJX-JAX/PyQt6 等の統合依存は
+# sysid作業には不要なため含めない。
+#
+# バージョン下限とマーカーについて:
+#   mujoco.sysid モジュール自体は 3.5.0 で追加されたが、下限を 3.5.0 のままにすると
+#   このプロジェクトの requires-python が >=3.9 であるために Python 3.9 環境では
+#   uv が mujoco 3.5.0 側に解決してしまう（3.11.0 の Requires-Python が >=3.10 のため）。
+#   3.5.0 は sdist のみでホイールが無く、Windows ではビルドに失敗しうるうえ、
+#   sysid は新しいAPIでありフェーズ2〜3の動作確認は 3.11.0 でしか取れていない。
+#   そこで「動作確認が取れたバージョンに固定する」（作業手順書の未確定事項）を果たすため
+#   下限を 3.11.0 に引き上げ、Python 3.9 では単にこのグループが空になるよう
+#   マーカーを付けている。マーカーで逃がしているのは、実機側(Raspberry Pi)で動く
+#   メインパッケージの requires-python >=3.9 を sysid 作業の都合で狭めないため
+#   （Piの Python バージョンはこのリポジトリからは確認できない）。
 mujoco-sysid = [
-    "mujoco[sysid]>=3.5.0",
+    "mujoco[sysid]>=3.11.0; python_version >= '3.10'",
 ]
 
 # ▼ これを pyproject.toml の一番下に追記 2026/02/13 ▼

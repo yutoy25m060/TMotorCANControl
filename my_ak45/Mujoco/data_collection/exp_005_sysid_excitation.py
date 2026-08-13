@@ -137,7 +137,7 @@ class ExcitationLogger:
 
 
 with console_log(RUN_DIR):
-    print(f"=== 実験 005: システム同定用 multi-sine 励振信号 ===")
+    print("=== 実験 005: システム同定用 multi-sine 励振信号 ===")
     print(f"モーター: {motor_config.type} (ID: {motor_config.id})")
     print(f"基準周波数: {BASE_FREQ} Hz, 基準振幅: {AMPLITUDE} Nm (瞬時最大: {PEAK_TORQUE:.3f} Nm)")
     print(f"記録時間: {DURATION} 秒, サンプリング周期: {DT} 秒 ({1 / DT:.0f} Hz)")
@@ -201,10 +201,10 @@ with console_log(RUN_DIR):
                 # 原理的にできず、この1サンプル分のずれはスクリプト側では解消できない。
                 #
                 # 追記(2026-08-13): この1サンプルは「記録の帳簿上のずれ」であって、CSV上の指令-実測の
-                # 遅れの全部ではない（別に電流ループの物理的なむだ時間 L≈1.85ms がある）。また
-                # MuJoCo の rollout は sensor[i] = ctrl[0..i-1] への応答 という同じ規約を持つため、
-                # この1サンプル分は rollout 側が自動的に合わせてくれる。したがって sysid 用の整形で
-                # 実際に詰めるべき行数は1ではなく約2（＝むだ時間の分）。詳細と実測による確認は
+                # 遅れの全部ではない。別に電流ループの物理的なむだ時間 L≈1.85ms（約2サンプル）があり、
+                # CSV上のずれは合計で約3サンプルになる（sysid_run_check.py の相互相関が測る値）。
+                # sysid 用の整形で明示的に詰める行数が2なのは、残る約1サンプルを MuJoCo 側の
+                # 時刻付けが暗黙に補正するためで、この1とは別物。詳細と実測による確認は
                 # my_ak45/Mujoco/identification/identify.py の DEFAULT_SHIFT のコメント参照。
                 logger.log(t, wall_time, commanded_torque)
 
