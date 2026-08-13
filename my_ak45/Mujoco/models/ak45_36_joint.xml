@@ -44,7 +44,14 @@
       <!-- inertial とは、body の質量・慣性を定義する要素。pos は重心位置、mass は質量、diaginertia は慣性テンソルの対角成分を表す。 -->
       <inertial pos="0 0 0" mass="0.05" diaginertia="1e-5 1e-5 1e-5"/>
       <!-- joint とは、body 間の相対運動を定義する要素。name は関節名、type は関節の種類（hinge は回転関節）、axis は回転軸の方向、range は可動範囲、armature はリフレクトされたロータ慣性、damping は減衰係数、frictionloss は摩擦損失を表す。 -->
-      <joint name="ak45_joint" type="hinge" axis="0 0 1" range="-3.14 3.14" armature="0.01" damping="0.05" frictionloss="0.0"/>
+      <!-- armature/damping/frictionloss はフェーズ3の同定対象。ここの値は「そのステージで
+           同定対象に含めなかった場合に固定値として効く」ベースラインであり、段階的同定
+           （armature単独 → +frictionloss → +damping）が効果を1つずつ足す形になるよう
+           damping/frictionloss は 0 を基準にしている（identification/identify.py 参照）。
+           なお上の inertial diaginertia=1e-5 も関節軸まわりの慣性に加算されるため、
+           同定される armature は厳密には「全慣性 − 1e-5」。モデルとしては自己整合している
+           が、armature をロータの物理的な反射慣性として読む場合はこの分を足すこと。 -->
+      <joint name="ak45_joint" type="hinge" axis="0 0 1" range="-3.14 3.14" armature="0.01" damping="0.0" frictionloss="0.0"/>
       <!-- geom とは、body の形状を定義する要素。type は形状の種類（cylinder は円柱）、size は半径と高さ、rgba は色と透明度を表す。 -->
       <geom type="cylinder" size="0.02 0.01" rgba="0.6 0.6 0.6 1"/>
     </body>

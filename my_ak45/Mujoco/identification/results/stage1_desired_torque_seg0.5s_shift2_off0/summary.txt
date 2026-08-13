@@ -1,0 +1,9 @@
+stage: 1
+torque_column: desired_torque
+seg_len: 0.5
+shift: 2
+crossing_offset: 0
+n_segments: 48
+cost_before: 43.43227162650399
+cost_after: 15.76658491525103
+params: {'armature': 0.0157746205856209}

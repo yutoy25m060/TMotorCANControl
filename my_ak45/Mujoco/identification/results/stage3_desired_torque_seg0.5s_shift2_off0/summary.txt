@@ -1,0 +1,9 @@
+stage: 3
+torque_column: desired_torque
+seg_len: 0.5
+shift: 2
+crossing_offset: 0
+n_segments: 48
+cost_before: 15.949764128439249
+cost_after: 0.21574950777899846
+params: {'armature': 0.012749758164055498, 'frictionloss': 0.097735278042639, 'damping': 0.02701614746069557}

@@ -1,0 +1,9 @@
+stage: 2
+torque_column: desired_torque
+seg_len: 0.5
+shift: 2
+crossing_offset: 0
+n_segments: 48
+cost_before: 23.714581268980485
+cost_after: 0.33442096209316574
+params: {'armature': 0.012496725629349953, 'frictionloss': 0.15981943354784617}

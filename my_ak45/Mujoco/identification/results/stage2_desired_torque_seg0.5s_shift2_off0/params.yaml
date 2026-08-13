@@ -1,0 +1,22 @@
+armature:
+  frozen: false
+  max_value:
+  - 0.05
+  min_value:
+  - 0.0001
+  name: armature
+  nominal:
+  - 0.01
+  value:
+  - 0.012496725629349953
+frictionloss:
+  frozen: false
+  max_value:
+  - 0.5
+  min_value:
+  - 0.0
+  name: frictionloss
+  nominal:
+  - 0.05
+  value:
+  - 0.15981943354784617
