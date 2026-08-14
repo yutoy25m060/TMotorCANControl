@@ -1,0 +1,11 @@
+armature:
+  frozen: false
+  max_value:
+  - 0.05
+  min_value:
+  - 0.0001
+  name: armature
+  nominal:
+  - 0.01
+  value:
+  - 0.0157746205856209

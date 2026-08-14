@@ -1,0 +1,4 @@
+# sysid.default_report() が生成するHTMLレポートは1ファイル約750KBあり、
+# identify.py と data/raw/ のCSVから再生成できるため追跡しない。
+# 同定結果そのもの（params.yaml / summary.txt）は小さく、後から参照する価値があるので追跡する。
+results/**/report.html
