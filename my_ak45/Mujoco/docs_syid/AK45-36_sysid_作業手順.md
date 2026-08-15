@@ -236,14 +236,17 @@ Windows PC（Piをリモート操作している側の母艦）で行う。こ�
 
 ### フェーズ5: 反映
 
-20. [ ] 同定結果をMuJoCoモデル（XML）に反映し、`my_ak45/Mujoco/` 配下に保存・コミットする。
+20. [x] 同定結果をMuJoCoモデル（XML）に反映し、`my_ak45/Mujoco/` 配下に保存・コミットする。
+        `models/ak45_36_joint_identified.xml` を新規作成し、ステージ3（armature +
+        frictionloss + damping）の同定値を焼き込んだ。`spec.compile()` → `mj_step()`
+        で疎通確認済み。
 
         > **注意**: `models/ak45_36_joint.xml` に直接書き込んではいけない。このファイルの
         > `damping=0`/`frictionloss=0` は、`identify.py` の段階的同定が「そのステージで
         > 対象にしないパラメータの固定値」として依存しているベースラインであり、
         > 同定値を焼き込むとステージ1/2の意味が変わってしまう。
         > `models/ak45_36_joint_identified.xml` のような別ファイルとして保存すること。
-21. [ ] 変更履歴を `.ai/logs/` にCLAUDE.mdの規定フォーマットで記録する
+21. [x] 変更履歴を `.ai/logs/` にCLAUDE.mdの規定フォーマットで記録する
         （このsysid作業自体はメイン package (`src/TMotorCANControl/`) に影響しないため、
         CLAUDE.mdの「テスト状況」項目は「実機検証」の代わりに「sysid収束・validation結果」
         を記載する形になる）
