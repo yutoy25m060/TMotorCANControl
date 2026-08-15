@@ -15,6 +15,15 @@
 現時点の成果（同定済みモデル）は [`models/ak45_36_joint_identified.xml`](models/ak45_36_joint_identified.xml) です。
 未同定のモデルで位置誤差 265 mrad だったものが、**11.6 mrad（約23分の1）** まで改善しています。
 
+![同定前後のモデル予測 vs 実測](identification/results/figures/fit_comparison.png)
+
+*赤破線＝同定前（`armature=0.01`/`damping=0`/`frictionloss=0` の初期値のまま）、
+青実線＝同定後（フェーズ3ステージ3）、黒実線＝実機の実測値。
+実データ（`run1786575616`）に対する0.5秒区間4本の予測で、同定前は実測から大きく外れているのに対し、
+同定後はほぼ重なっている。区間の境目（縦の点線）で予測が実測の初期状態にリセットされているのは、
+「なぜ軌道を0.5秒に分割するのか」（フェーズ3）で説明する開ループの初期状態鋭敏性への対応。
+[`identification/plot_results.py`](identification/plot_results.py) で再生成できる。*
+
 ---
 
 ## 1. そもそも「システム同定」とは何か
@@ -150,6 +159,11 @@ torque(t) = 0.9 * ( sin(2π·4.0·t) + 0.6·sin(2π·13.6·t) + 0.3·sin(2π·29
 
 - 基準周波数 4.0 Hz に、3.4倍（13.6 Hz）と 7.4倍（29.6 Hz）の高調波を重ねた波形
 - 瞬時最大トルクは 0.9 × (1.0+0.6+0.3) = **1.71 Nm**
+
+![励振トルク波形](identification/results/figures/excitation_waveform.png)
+
+*上段が実際にモーターへ送られる合成波形、下段がその内訳（3つの正弦波成分）。
+周波数の異なる成分を重ねることで、下記のとおり低速域と高速域で別々の物理特性を分離できる。*
 
 #### なぜ multi-sine なのか
 
@@ -501,5 +515,6 @@ uv run python validate.py --stages 2 3
 | システム同定の一般論（教科書的） | `docs_syid/モデルベースデザイン・制御系設計のためのシステム同定入門.md` |
 | 個々の判断の経緯・実測値の根拠 | [`../../.ai/logs/`](../../.ai/logs/) の `2026-08-13_*` 一連 |
 | 保持しているデータの一覧 | [`data/raw/README.md`](data/raw/README.md) |
+| 本READMEの図の再生成 | [`identification/plot_results.py`](identification/plot_results.py)（`uv run python identification/plot_results.py`） |
 | モーター制御API全般 | [`../control_mit_can/README_ja.md`](../control_mit_can/README_ja.md)、[`../../README.ja.md`](../../README.ja.md) |
 | リポジトリ全体の構造 | [`../../CLAUDE.md`](../../CLAUDE.md) |
