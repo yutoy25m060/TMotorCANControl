@@ -1,4 +1,4 @@
-# 速度制御テンプレート追加、build_motor_managers()のmax_temp暗黙デフォルト撤廃、関連ドキュメントの記述修正
+# 速度制御テンプレート追加、build_motor_managers()のmax_temp暗黙デフォルト撤廃、関連ドキュメントの記述修正、既存F541警告一括修正
 
 ## 冒頭メタ情報
 
@@ -11,7 +11,9 @@
   - `my_ak45/control_mit_can/experiments/exp_007_thermal_baseline_multi.py`（同上）
   - `my_ak45/control_mit_can/README_ja.md`（速度制御テンプレートの追記、API使用例のバグ修正、
     温度上限の記述をconfig.yamlの現在値に整合、exp_006/exp_007の記載追加）
-- 種別: 機能追加 / バグ修正 / ドキュメント修正
+  - `my_ak45/control_mit_can/{0_template_basic,1_template_impedance,2_template_current}.py`、
+    `my_ak45/control_mit_can/experiments/exp_00{1,2,3,4}_*.py`（既存F541警告の機械的修正のみ）
+- 種別: 機能追加 / バグ修正 / ドキュメント修正 / 軽微なLintクリーンアップ
 
 ## 設計判断と理由
 
@@ -34,6 +36,17 @@
   実験を作る」という運用（README_ja.md参照）に合わせ、まずテンプレート層に追加する方を
   優先した。速度制御を使った具体的な実験（ステップ応答評価等）は今後`experiments/`側で
   必要になった時点でこのテンプレートをコピーする想定とし、今回はスコープに含めていない。
+
+### 4. `my_ak45/control_mit_can/`配下の既存F541警告（不要なf-string接頭辞）の一括修正
+
+`ruff check my_ak45/control_mit_can/`を実行したところ、`0_template_basic.py`・
+`1_template_impedance.py`・`2_template_current.py`・`exp_001_gain_tuning.py`〜
+`exp_004_trajectory.py`の計7ファイルに、プレースホルダを含まない`print(f"=== ... ===")`
+見出し行の不要な`f`接頭辞（F541）が残っていた（いずれも本タスクで新規に触れたファイルとは
+無関係の既存の警告）。すべて同一パターンの機械的な修正（プレースホルダなしの`f`接頭辞削除）
+のみで、動作・出力内容への影響がないことを確認した上で`ruff check --fix`で一括修正した。
+これにより`my_ak45/control_mit_can/`配下は`ruff check`が全件パスする状態になった
+（リポジトリ全体（`src/`・`demos/`等）には本タスクのスコープ外の既存警告が多数残っている）。
 
 ### 2. `build_motor_managers()`の`max_temp`暗黙デフォルト（50℃）の撤廃
 
@@ -92,11 +105,9 @@ config.yamlの値と食い違っていた）。現在の値（75℃）と、旧5
 - [ ] 単体テスト実行（このリポジトリに自動テストスイートは存在しない）
 - [ ] 統合テスト実行（同上）
 - [x] 手動確認:
-  - `uv run ruff check my_ak45/control_mit_can/3_template_speed.py
-    my_ak45/control_mit_can/lib/motor_setup.py
-    my_ak45/control_mit_can/experiments/exp_006_thermal_baseline_check.py
-    my_ak45/control_mit_can/experiments/exp_007_thermal_baseline_multi.py` — エラーなし
-    （リポジトリ全体には本変更と無関係な既存のF541警告が7件残存、未着手）
+  - `uv run ruff check my_ak45/control_mit_can/` — 全件パス（既存の7件のF541警告も含めて
+    修正済み。リポジトリ全体（`src/`・`demos/`等）には本タスクのスコープ外の既存警告が
+    多数残存、未着手）
   - `uv run python -c "import TMotorCANControl"` — 成功
   - `uv run python -m py_compile` で変更・新規ファイルすべて構文エラーなしを確認
   - `config.yaml`を`yaml.safe_load()`で読み込み、`control.speed.kd`が期待通り取得できることを確認

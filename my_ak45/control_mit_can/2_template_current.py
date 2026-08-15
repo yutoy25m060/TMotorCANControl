@@ -38,7 +38,7 @@ RUN_DIR = make_run_dir("current_control")
 LOG_FILE = make_log_path(RUN_DIR, "log.csv")
 
 with console_log(RUN_DIR):
-    print(f"=== AK45-36 電流制御テンプレート ===")
+    print("=== AK45-36 電流制御テンプレート ===")
     print(f"モーター: {motor_config.type} (ID: {motor_config.id})")
     print(f"電流制限: {CURRENT_LIMIT} A")
     print(f"目標電流: {TARGET_CURRENT} A")

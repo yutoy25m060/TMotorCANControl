@@ -49,7 +49,7 @@ RUN_DIR = make_run_dir("exp002_step_response")
 LOG_FILE = make_log_path(RUN_DIR, "log.csv")
 
 with console_log(RUN_DIR):
-    print(f"=== 実験 002: ステップ応答特性評価 ===")
+    print("=== 実験 002: ステップ応答特性評価 ===")
     print(f"モーター: {motor_config.type} (ID: {motor_config.id})")
     print(f"制御ゲイン: K={K} Nm/rad, B={B} Nm/(rad/s)")
     print(f"ステップ: {INITIAL_POSITION:.3f} → {TARGET_POSITION:.3f} rad")

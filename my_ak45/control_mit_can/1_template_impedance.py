@@ -37,7 +37,7 @@ RUN_DIR = make_run_dir("impedance_control")
 LOG_FILE = make_log_path(RUN_DIR, "log.csv")
 
 with console_log(RUN_DIR):
-    print(f"=== AK45-36 インピーダンス制御テンプレート ===")
+    print("=== AK45-36 インピーダンス制御テンプレート ===")
     print(f"モーター: {motor_config.type} (ID: {motor_config.id})")
     print(f"剛性 K: {K} Nm/rad")
     print(f"減衰 B: {B} Nm/(rad/s)")

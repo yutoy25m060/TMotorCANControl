@@ -29,7 +29,7 @@ RUN_DIR = make_run_dir("basic_control")
 LOG_FILE = make_log_path(RUN_DIR, "log.csv")
 
 with console_log(RUN_DIR):
-    print(f"=== AK45-36 基本制御テンプレート ===")
+    print("=== AK45-36 基本制御テンプレート ===")
     print(f"モーター: {motor_config.type} (ID: {motor_config.id})")
     print(f"ログ保存先: {RUN_DIR}")
     print(f"実行時間: {RUNTIME_SECONDS} 秒")

@@ -86,7 +86,7 @@ RUN_DIR = make_run_dir("exp003_multi_motor")
 SYNC_LOG_FILE = make_log_path(RUN_DIR, "sync_log.csv")
 
 with console_log(RUN_DIR):
-    print(f"=== 実験 003: 複数モーター制御 ===")
+    print("=== 実験 003: 複数モーター制御 ===")
     print(f"制御モーター数: {len(MOTORS)}")
     for motor in MOTORS:
         print(f"  - {motor['name']}: {motor['type']} (ID: {motor['id']})")

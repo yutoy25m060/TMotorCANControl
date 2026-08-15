@@ -51,7 +51,7 @@ SETTLE_TIME = 2.0  # 安定待ち時間 [秒]
 RUN_DIR = make_run_dir("exp001_gain_tuning")
 
 with console_log(RUN_DIR):
-    print(f"=== 実験 001: インピーダンスゲイン調整 ===")
+    print("=== 実験 001: インピーダンスゲイン調整 ===")
     print(f"モーター: {motor_config.type} (ID: {motor_config.id})")
     print(f"目標位置: {TARGET_POSITION:.3f} rad ({np.degrees(TARGET_POSITION):.1f}°)")
     print(f"テストするゲインセット: {len(GAIN_SETS)} 種類")

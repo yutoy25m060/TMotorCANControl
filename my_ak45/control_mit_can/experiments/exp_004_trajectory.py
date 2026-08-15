@@ -75,7 +75,7 @@ def calculate_trajectory_velocity(t, amplitude, period, dt=0.01):
 
 
 with console_log(RUN_DIR):
-    print(f"=== 実験 004: 軌跡追従制御 ===")
+    print("=== 実験 004: 軌跡追従制御 ===")
     print(f"モーター: {motor_config.type} (ID: {motor_config.id})")
     print(f"制御ゲイン: K={K} Nm/rad, B={B} Nm/(rad/s)")
     print(f"軌跡: 三角波, 振幅={AMPLITUDE:.3f} rad, 周期={PERIOD} 秒")
