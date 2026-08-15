@@ -298,7 +298,13 @@ motor.set_output_torque_newton_meters(desired_torque)  # desired_torque は mult
 `exp_003_multi_motor.py` は `config.yaml` の `safety.max_position`/`max_velocity`/`max_torque`/`emergency_stop`
 を実際に読み込み、`lib/safety_monitor.py` の `SafetyMonitor` でモーターごとに監視しています。
 いずれかのモーターがしきい値を超えると（`emergency_stop: true` の場合）自動的に全モーターへ
-`power_off()` を送って停止します。他のテンプレート・実験スクリプトはまだこの監視機構を使っていません。
+`power_off()` を送って停止します。
+
+`0_template_basic.py`〜`3_template_speed.py`（全テンプレート）と `exp_001_gain_tuning.py`・
+`exp_002_step_response.py`・`exp_004_trajectory.py`（単一モーター実験）も `SafetyMonitor` を
+使用しています。単一モーターの場合は `motors=[motor]` の1要素リストとして構築し、`update()` と
+安全上限チェックをまとめて行う `SafetyMonitor.update_and_check()`（戻り値が `True` なら呼び出し側の
+ループを `break` する想定）を制御ループの先頭で呼びます。
 
 `my_ak45/Mujoco/data_collection/exp_005_sysid_excitation.py` も `SafetyMonitor` を使用しています。この実験は位置・速度フィードバック
 による復元力を持たない開ループのトルク指令であるため、実測値ベースの `SafetyMonitor` によるしきい値

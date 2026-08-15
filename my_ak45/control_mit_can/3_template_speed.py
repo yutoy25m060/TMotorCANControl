@@ -20,6 +20,7 @@ from lib.logging_utils import (
     make_run_dir,
 )
 from lib.motor_setup import build_motor_manager, get_motor_config, zero_position
+from lib.safety_monitor import SafetyMonitor
 
 # 設定ファイルの読み込み
 config = load_config()
@@ -28,11 +29,16 @@ LOG_VARS = config["logging"]["vars"]
 
 # 速度制御パラメータ
 SPEED_KD = config["control"]["speed"]["kd"]  # 速度ゲイン
-MAX_VELOCITY = config["safety"]["max_velocity"]  # 出力軸側の速度上限 [rad/s]（安全弁として使用）
 
 # 実験パラメータ
 TARGET_VELOCITY = 1.0  # 目標速度 [rad/s]
 RUNTIME_SECONDS = 10  # 実験時間 [秒]
+
+# 安全制限パラメータ（速度指令自体は MAX_VELOCITY でクランプ、位置/トルク/温度は SafetyMonitor で監視）
+MAX_POSITION = config["safety"]["max_position"]
+MAX_VELOCITY = config["safety"]["max_velocity"]  # 出力軸側の速度上限 [rad/s]
+MAX_TORQUE = config["safety"]["max_torque"]
+EMERGENCY_STOP_ENABLED = config["safety"]["emergency_stop"]
 
 # 実行フォルダ（logs/speed_control_{timestamp}/）を作成し、CSV・コンソールログをまとめる
 RUN_DIR = make_run_dir("speed_control")
@@ -48,6 +54,16 @@ with console_log(RUN_DIR):
 
     # モーター制御
     with build_motor_manager(motor_config, csv_file=LOG_FILE, log_vars=LOG_VARS) as motor:
+        # 位置/速度/トルク/温度の上限監視（超過時は全モーター＝このモーター1台を緊急停止）
+        safety_monitor = SafetyMonitor(
+            [motor],
+            [f"{motor_config.type}(ID{motor_config.id})"],
+            MAX_POSITION,
+            MAX_VELOCITY,
+            MAX_TORQUE,
+            emergency_stop=EMERGENCY_STOP_ENABLED,
+        )
+
         # 位置ゼロ化
         zero_position(motor)
 
@@ -59,8 +75,9 @@ with console_log(RUN_DIR):
         loop = make_realtime_loop()  # 100Hz制御
 
         for t in loop:
-            # 状態更新（必須）
-            motor.update()
+            # 状態更新 + 安全上限監視（必須）。上限超過時は緊急停止してループを抜ける
+            if safety_monitor.update_and_check():
+                break
 
             # 速度指令（安全のため config.yaml の safety.max_velocity 内に収める）
             safe_velocity = np.clip(TARGET_VELOCITY, -MAX_VELOCITY, MAX_VELOCITY)
