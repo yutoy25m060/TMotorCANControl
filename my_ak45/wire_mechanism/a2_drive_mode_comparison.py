@@ -9,21 +9,18 @@
 
 import numpy as np
 
+from wire_mechanism import assumed_params as ap
 from wire_mechanism import drive_modes as dm
 from wire_mechanism.wire_kinematics import solve_wire_geometry
 
 # --- 仮置きパラメータ（A-2節の表と対応） -------------------------------------
-LINK = dm.LinkSpec(
-    mass=1.0,
-    l_com=0.15,
-    inertia=1.0 * 0.30**2 / 3.0,  # 一様棒を関節端まわりで回した場合 = 0.03 kg m^2
-    g=9.8,
-)
+# LINK・TENSION_MIN は assumed_params.py（正式決定待ちの仮値の一元管理先）を参照する。
+LINK = ap.ASSUMED_LINK
 L_ANCHOR = 0.05  # 関節からワイヤー固定位置までの距離 [m]
 V_MAX_MOTOR = 6.0  # AK45-36 出力軸側の速度上限 [rad/s]（MIT_Params、実機で裏取り済み）
 TAU_MOTOR_RATED = 8.0  # AK45-36 定格トルク [Nm]（公式基本仕様）
 L_ARM_MIN = 0.005  # 特異点回避のためのモーメントアーム下限 [m]
-TENSION_MIN = 5.0  # たるみ防止のための最低張力 [N]
+TENSION_MIN = ap.ASSUMED_TENSION_MIN
 
 # 定滑車配置の探索グリッド
 GRID_X = np.linspace(-0.30, 0.30, 25)
