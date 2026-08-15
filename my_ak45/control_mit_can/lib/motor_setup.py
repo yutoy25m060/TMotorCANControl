@@ -36,12 +36,19 @@ def build_motor_managers(motors_config: list) -> list:
     """config["motors"]（複数モーター設定のリスト）から TMotorManager_mit_can を N台分構築する。
 
     個別CSVロギングは無効化する（複数モーターの記録は同期ロガー側が担当するため）。
+
+    max_temp は各エントリで必須（get_motor_config() の単一モーター版と同じく、暗黙の
+    デフォルト値を持たせない）。以前は .get("max_temp", 50) で無指定時に50℃へ黙って
+    フォールバックしていたが、config.yaml の motor.max_temp が「アイドル時の通常の温度
+    上昇（65〜75℃）でも安全停止しないよう」50→75に変更された経緯（config.yaml 冒頭の
+    コメント参照）と矛盾する値であり、max_temp を書き忘れた設定でこの関数を使うと
+    アイドル状態ですら誤って緊急停止するおそれがあった。
     """
     return [
         TMotorManager_mit_can(
             motor_type=motor_config["type"],
             motor_ID=motor_config["id"],
-            max_mosfett_temp=motor_config.get("max_temp", 50),
+            max_mosfett_temp=motor_config["max_temp"],
             CSV_file=None,
         )
         for motor_config in motors_config

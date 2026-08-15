@@ -49,6 +49,10 @@ control:
     Ki: 0.01       # 積分ゲイン
     limit: 5.0     # 電流制限 [A]
 
+  # 速度制御（プレーン速度モード。set_speed_gains() の kd と同じ意味）
+  speed:
+    kd: 1.0        # 速度ゲイン（制御則: (v_des - v_actual)*kd = iq）
+
 # ログ設定
 logging:
   vars: ["output_angle", "output_velocity", "output_torque", "mosfet_temperature"]  # ログ変数

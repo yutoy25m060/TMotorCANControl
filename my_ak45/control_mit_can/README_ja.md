@@ -10,6 +10,7 @@ my_ak45_control/
 ├── 0_template_basic.py      # 基本制御テンプレート
 ├── 1_template_impedance.py  # インピーダンス制御テンプレート
 ├── 2_template_current.py    # 電流制御テンプレート
+├── 3_template_speed.py      # 速度制御テンプレート
 ├── lib/                     # テンプレート・実験スクリプトの共通コード
 │   ├── config_loader.py    # config.yaml の読み込み
 │   ├── motor_setup.py      # モーター初期化・ゼロ化（単一/複数モーター）
@@ -18,10 +19,12 @@ my_ak45_control/
 │   └── safety_monitor.py   # 複数モーターの安全監視・緊急停止（SafetyMonitor）
 ├── config.yaml              # 設定ファイル
 ├── experiments/             # 実験スクリプト
-│   ├── exp_001_gain_tuning.py     # ゲイン調整実験
-│   ├── exp_002_step_response.py   # ステップ応答実験
-│   ├── exp_003_multi_motor.py     # 多モーター制御実験
-│   └── exp_004_trajectory.py      # 軌跡追従実験
+│   ├── exp_001_gain_tuning.py             # ゲイン調整実験
+│   ├── exp_002_step_response.py           # ステップ応答実験
+│   ├── exp_003_multi_motor.py             # 多モーター制御実験
+│   ├── exp_004_trajectory.py              # 軌跡追従実験
+│   ├── exp_006_thermal_baseline_check.py  # 温度ベースライン確認（単一モーター、能動指令なし）
+│   └── exp_007_thermal_baseline_multi.py  # 温度ベースライン確認（3台並列、能動指令なし）
 ├── logs/                    # 実験ログ（実行ごとにサブフォルダが作られる）
 │   ├── README.md           # ログ分析ガイド
 │   └── {実験名}_{タイムスタンプ}/  # 1回の実行につき1フォルダ（CSV + コンソールログ）
@@ -93,7 +96,7 @@ sudo ip link set can0 up type can bitrate 1000000
 motor:
   type: "AK45-36"
   id: 1
-  max_temp: 50
+  max_temp: 75  # 根拠は config.yaml 冒頭のコメント参照（アイドル時の温度上昇に対する実用マージン）
 ```
 
 ## 使用方法
@@ -111,6 +114,9 @@ python 1_template_impedance.py
 
 # 電流制御
 python 2_template_current.py
+
+# 速度制御
+python 3_template_speed.py
 ```
 
 ### 実験の実行
@@ -131,6 +137,12 @@ python exp_003_multi_motor.py
 
 # 軌跡追従実験
 python exp_004_trajectory.py
+
+# 温度ベースライン確認（単一モーター、能動指令なし）
+python exp_006_thermal_baseline_check.py
+
+# 温度ベースライン確認（3台並列、能動指令なし）
+python exp_007_thermal_baseline_multi.py
 ```
 
 システム同定用 multi-sine 励振実験（`exp_005_sysid_excitation.py`）は
@@ -228,18 +240,25 @@ motor.set_output_angle_radians(desired_position)  # 目標位置 [rad]
 
 **使用例:**
 ```python
-motor.set_current_gains(Kp=0.1, Ki=0.01)
+motor.set_current_gains(kp=0.1, ki=0.01)  # 引数名は小文字 kp/ki（mit_can.py のシグネチャ参照）
 motor.set_output_torque_newton_meters(desired_torque)
 ```
 
 ### 4. 速度制御
 
-モーターの速度を制御します。
+モーターの速度を制御します（プレーン速度モード。位置ゲイン・フィードフォワード電流は常に0）。
+
+**パラメータ:**
+- `kd`: 速度ゲイン（制御則: `(v_des - v_actual)*kd = iq`）
 
 **使用例:**
 ```python
-motor.set_speed_radians_per_second(desired_speed)
+motor.set_speed_gains(kd=1.0)
+motor.set_output_velocity_radians_per_second(desired_speed)  # desired_speed [rad/s]
 ```
+
+**テンプレート:**
+- `3_template_speed.py`: 速度制御の基本骨組み
 
 ### 5. システム同定用励振信号（sysid excitation）
 
@@ -270,7 +289,8 @@ motor.set_output_torque_newton_meters(desired_torque)  # desired_torque は mult
 
 ## 安全上の注意
 
-1. **温度監視**: MOSFET 温度が 50℃ を超えないよう監視してください
+1. **温度監視**: MOSFET 温度が config.yaml の `motor.max_temp`（現在75℃。根拠は config.yaml
+   冒頭のコメント参照）を超えないよう監視してください
 2. **位置制限**: モーターの可動範囲を超えないよう制限を設定してください
 3. **緊急停止**: 異常時はすぐに電源を切断してください
 4. **負荷確認**: モーターに過大な負荷をかけないよう注意してください
