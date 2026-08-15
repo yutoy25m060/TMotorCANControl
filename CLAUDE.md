@@ -65,18 +65,27 @@ environment management. Everything is hardware-in-the-loop: there is no simulato
   runs grows large over a full 10s span. Not wired into the main package.
 - `my_ak45/wire_mechanism/` — a from-scratch physics module (not just docs) modeling a planned wire/tendon-driven
   quadruped joint, developed in phases per `my_ak45/docs_mechanism/ワイヤー駆動関節の運動学と定滑車配置の検討.md`:
-  Phase A (coordinate/sign conventions) and Phase A-2 (drive-mechanism choice — gravity-torque sign analysis over
-  the planned ±90° range showed no sign reversal, so a single unidirectional wire suffices; antagonistic pairs
-  are only needed for wider ranges, out of scope) are decided; Phase B (`wire_kinematics.py` — pure-function
-  geometry: `pulley_polar_from_xy`, `anchor_angle`, `included_angle`, `wire_length`, `moment_arm`,
-  `solve_wire_geometry`) and Phase C (`wire_statics.py` — quasi-static `gravity_torque()` /
-  `solve_wire_tension()`) are implemented and unit-tested; Phase D (pulley-placement grid search) is not started.
-  `plotting.py` renders Phase B/C quantities via matplotlib (dev-only dependency). **Known unresolved bug**:
-  `wire_kinematics.pulley_polar_from_xy()`'s `theta_pulley` sign doesn't match `theta_anchor`'s convention, so
-  `solve_wire_geometry().l_wire` can disagree with the true Euclidean distance for off-axis pulley coordinates —
-  tracked by an `xfail(strict=True)` test in `tests/test_wire_kinematics.py`; do not build Phase D on top of this
-  without resolving it first (see `.ai/logs/2026-08-06_02_wire-statics-phasec-impl_01.md`). Tests run via
-  `uv run pytest` (see Environment & commands below).
+  Phase A (coordinate/sign conventions) is decided; Phase B (`wire_kinematics.py` — pure-function geometry:
+  `pulley_polar_from_xy`, `anchor_angle`, `included_angle`, `wire_length`, `moment_arm`, `solve_wire_geometry`)
+  and Phase C (`wire_statics.py` — quasi-static `gravity_torque()` / `solve_wire_tension()`) are implemented and
+  unit-tested. **The `pulley_polar_from_xy()` sign-convention doubt once tracked here is resolved** (2026-08-07,
+  commit `427236c`): re-verification showed the suspected mismatch was a false positive in the comparison test's
+  own hand-computed anchor coordinates, not in `pulley_polar_from_xy()` itself; the `xfail` was replaced with a
+  passing regression test (`test_l_wire_matches_direct_euclidean_distance_to_pulley_xy`) — see
+  `.ai/logs/2026-08-07_01_gravity-torque-sign-fix_01.md`. Phase A-2 (drive-mechanism choice: unidirectional vs.
+  antagonistic) was **revisited and walked back** (2026-08-13, `drive_modes.py` — dynamics-aware comparison of
+  unidirectional/spring-assisted/antagonistic modes, plus `a2_drive_mode_comparison.py` reproducing the
+  documented numbers): the original "single wire suffices for ±90°" conclusion only checked the gravity-torque
+  sign at zero acceleration, missing inertia, slack at range-end, and the motor speed limit — it turned out motor
+  speed limit (not inertia) is the binding constraint, and A-2 is now conditional on the target swing frequency
+  (undecided) — see `.ai/logs/2026-08-13_09_a2-drive-mode-reevaluation_01.md`. **Phase D is now implemented for
+  the unidirectional-only case**: `pulley_placement_search.py`'s `search_unidirectional_placement()` grid-searches
+  `(x, z)` (2D — antagonistic mode would need a 4D `(x1,z1,x2,z2)` search that isn't implemented, since A-2 hasn't
+  settled which mode applies) and enforces the singularity (`l5_min`) and `T>=tension_min` constraints; it does
+  **not** enforce wire/link non-interference or physical mountability (no link-shape spec exists yet in this
+  repo) — don't treat its `feasible=True` as "buildable in real hardware". `plotting.py` renders Phase B/C curves
+  and Phase D placement heatmaps via matplotlib (dev-only dependency). Tests run via `uv run pytest` (see
+  Environment & commands below).
 - `my_ak45/docs_mechanism/`, `my_ak45/quadruped_prep_ja.md` — Japanese-language design/planning notes for the
   wire-driven quadruped described above; `docs_mechanism/` now tracks an implementation (`wire_mechanism/`) as
   design decisions land, `quadruped_prep_ja.md` remains advisory-only.

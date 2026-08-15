@@ -20,6 +20,7 @@
 
 import numpy as np
 
+from wire_mechanism.pulley_placement_search import PlacementGridResult
 from wire_mechanism.wire_kinematics import solve_wire_geometry
 from wire_mechanism.wire_statics import gravity_torque, solve_wire_tension
 
@@ -203,6 +204,104 @@ def plot_wire_geometry_phase_bc(
         print(f"Plot saved to: {output_file}")
 
     return fig, axes
+
+
+def plot_pulley_placement_heatmap(
+    result: PlacementGridResult,
+    metric: str = "max_tension",
+    output_file: str | None = None,
+) -> tuple:
+    """フェーズD `pulley_placement_search.search_unidirectional_placement()` の結果を
+    ヒートマップ表示する（D-3: 制約違反領域はマスクして色分けする）。
+
+    Parameters
+    ----------
+    result : PlacementGridResult
+        `search_unidirectional_placement()` の戻り値。
+    metric : str
+        表示する指標。`"max_tension"`（D-1第一候補）または `"tension_range"`（D-1第二候補）。
+    output_file : str | None
+        出力ファイルパス（PNG等）。Noneの場合は表示のみ。
+
+    Returns
+    -------
+    tuple
+        (fig, ax) — matplotlib の Figure と Axes オブジェクト
+    """
+    try:
+        import matplotlib.pyplot as plt
+        from matplotlib.colors import ListedColormap
+    except ImportError as e:
+        raise ImportError(
+            "matplotlib is required for plotting. Install with: pip install matplotlib"
+        ) from e
+
+    if metric == "max_tension":
+        values = result.max_tension
+        label = "max_θ0 T(θ0) [N]"
+    elif metric == "tension_range":
+        values = result.tension_range
+        label = "T(θ0) range [N]"
+    else:
+        raise ValueError(
+            f"unknown metric: {metric!r} (expected 'max_tension' or 'tension_range')"
+        )
+
+    fig, ax = plt.subplots(figsize=(8, 6))
+
+    masked = np.ma.masked_invalid(np.where(result.feasible, values, np.nan))
+    im = ax.pcolormesh(
+        result.x_grid, result.z_grid, masked, shading="nearest", cmap="viridis"
+    )
+    fig.colorbar(im, ax=ax, label=label)
+
+    # 制約違反の理由ごとに色分け（8-2: 特異点、8-1/たるみ: T<tension_min）
+    violation = np.zeros(result.singular.shape, dtype=float)
+    violation[result.singular] = 1.0
+    violation[result.slack_or_reversed & ~result.singular] = 2.0
+    violation_cmap = ListedColormap(["none", "black", "red"])
+    ax.pcolormesh(
+        result.x_grid,
+        result.z_grid,
+        np.ma.masked_equal(violation, 0.0),
+        shading="nearest",
+        cmap=violation_cmap,
+        vmin=0,
+        vmax=2,
+        alpha=0.6,
+    )
+
+    best = (
+        result.best_by_max_tension()
+        if metric == "max_tension"
+        else result.best_by_tension_range()
+    )
+    if best is not None:
+        iz, ix = best
+        ax.plot(
+            result.x_grid[ix],
+            result.z_grid[iz],
+            "*",
+            color="white",
+            markeredgecolor="black",
+            markersize=16,
+            label="best",
+        )
+        ax.legend(loc="upper right")
+
+    ax.set_xlabel("x [m]")
+    ax.set_ylabel("z [m]")
+    ax.set_title(
+        f"Phase D: Pulley Placement Search ({label})\n"
+        "black = singular (8-2), red = slack/T<0 (8-1)"
+    )
+    ax.set_aspect("equal")
+
+    if output_file:
+        plt.savefig(output_file, dpi=150, bbox_inches="tight")
+        print(f"Plot saved to: {output_file}")
+
+    return fig, ax
 
 
 # ===== Convenience script runner =====
