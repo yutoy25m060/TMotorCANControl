@@ -20,7 +20,10 @@
 
 import numpy as np
 
-from wire_mechanism.pulley_placement_search import PlacementGridResult
+from wire_mechanism.pulley_placement_search import (
+    AntagonisticPlacementResult,
+    PlacementGridResult,
+)
 from wire_mechanism.wire_kinematics import solve_wire_geometry
 from wire_mechanism.wire_statics import gravity_torque, solve_wire_tension
 
@@ -294,6 +297,101 @@ def plot_pulley_placement_heatmap(
     ax.set_title(
         f"Phase D: Pulley Placement Search ({label})\n"
         "black = singular (8-2), red = slack/T<0 (8-1)"
+    )
+    ax.set_aspect("equal")
+
+    if output_file:
+        plt.savefig(output_file, dpi=150, bbox_inches="tight")
+        print(f"Plot saved to: {output_file}")
+
+    return fig, ax
+
+
+def plot_antagonistic_placement_heatmap(
+    result: AntagonisticPlacementResult,
+    output_file: str | None = None,
+) -> tuple:
+    """フェーズD 拮抗2本の探索結果（`search_antagonistic_placement()`）をプロットする。
+
+    4次元の探索結果はそのまま描けないので、**ワイヤーA側について周辺化した2次元マップ**
+    （各セルにAを置き、Bを最良に選んだときの `max_θ0 T`）をヒートマップにする。
+    最適解の組は A を白星、その相方 B を白三角で示し、線で結ぶ。
+
+    Parameters
+    ----------
+    result : AntagonisticPlacementResult
+        `search_antagonistic_placement()` の戻り値。
+    output_file : str | None
+        出力ファイルパス（PNG等）。Noneの場合は表示のみ。
+
+    Returns
+    -------
+    tuple
+        (fig, ax) — matplotlib の Figure と Axes オブジェクト
+    """
+    try:
+        import matplotlib.pyplot as plt
+        from matplotlib.colors import ListedColormap
+    except ImportError as e:
+        raise ImportError(
+            "matplotlib is required for plotting. Install with: pip install matplotlib"
+        ) from e
+
+    fig, ax = plt.subplots(figsize=(8, 6))
+
+    masked = np.ma.masked_invalid(np.where(result.feasible, result.max_tension, np.nan))
+    im = ax.pcolormesh(
+        result.x_grid, result.z_grid, masked, shading="nearest", cmap="viridis"
+    )
+    fig.colorbar(im, ax=ax, label="best achievable max_θ0 T(θ0) [N]")
+
+    # A候補にならなかったセルのうち、B候補（アームが負）である領域を薄く示す。
+    b_only = result.candidate_b & ~result.feasible
+    ax.pcolormesh(
+        result.x_grid,
+        result.z_grid,
+        np.ma.masked_where(~b_only, np.ones_like(b_only, dtype=float)),
+        shading="nearest",
+        cmap=ListedColormap(["tab:orange"]),
+        alpha=0.35,
+    )
+
+    best = result.best_pair()
+    if best is not None:
+        (iz_a, ix_a), (iz_b, ix_b) = best
+        ax.plot(
+            [result.x_grid[ix_a], result.x_grid[ix_b]],
+            [result.z_grid[iz_a], result.z_grid[iz_b]],
+            "-",
+            color="white",
+            linewidth=1.5,
+            alpha=0.8,
+        )
+        ax.plot(
+            result.x_grid[ix_a],
+            result.z_grid[iz_a],
+            "*",
+            color="white",
+            markeredgecolor="black",
+            markersize=16,
+            label="best wire A",
+        )
+        ax.plot(
+            result.x_grid[ix_b],
+            result.z_grid[iz_b],
+            "^",
+            color="white",
+            markeredgecolor="black",
+            markersize=11,
+            label="its partner B",
+        )
+        ax.legend(loc="upper right")
+
+    ax.set_xlabel("x [m]")
+    ax.set_ylabel("z [m]")
+    ax.set_title(
+        "Phase D: Antagonistic Placement Search (marginalized over wire A)\n"
+        "orange = wire-B candidates only (negative moment arm)"
     )
     ax.set_aspect("equal")
 

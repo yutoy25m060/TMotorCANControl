@@ -1,7 +1,8 @@
-"""pulley_placement_search.py（フェーズD、単方向ワイヤー1本限定）のユニットテスト。"""
+"""pulley_placement_search.py（フェーズD: 単方向1本／拮抗2本）のユニットテスト。"""
 
 import numpy as np
 import pytest
+from wire_mechanism import assumed_params as ap
 from wire_mechanism import drive_modes as dm
 from wire_mechanism import pulley_placement_search as pps
 from wire_mechanism.wire_kinematics import solve_wire_geometry
@@ -177,3 +178,222 @@ def test_call_pattern_reproduces_8_5_moment_arm_upper_bound():
 
     expected_l5_max = min(l_pulley, L_ANCHOR)
     assert np.max(np.abs(geom.l_moment_arm)) == pytest.approx(expected_l5_max, abs=1e-3)
+
+
+# ===== 拮抗2本（探索次元4）=====
+
+
+def _antagonistic_demand(frequency: float):
+    """拮抗の出番である「トルク需要の符号が反転する」揺動を作る。"""
+    theta, _, ddtheta = dm.MotionSpec(np.deg2rad(60), frequency).sample()
+    return theta, dm.wire_torque_demand(theta, ddtheta, ap.ASSUMED_LINK)
+
+
+def test_antagonistic_grid_shapes_and_partner_defaults():
+    x_grid = np.linspace(-0.20, 0.20, 5)
+    z_grid = np.linspace(-0.20, 0.20, 4)
+    theta, demand = _antagonistic_demand(1.0)
+
+    result = pps.search_antagonistic_placement(
+        x_grid, z_grid, L_ANCHOR, 0.0, 0.0, theta, demand, tension_min=5.0
+    )
+
+    for arr in (
+        result.max_tension,
+        result.partner_iz,
+        result.partner_ix,
+        result.candidate_a,
+        result.candidate_b,
+        result.feasible,
+    ):
+        assert arr.shape == (4, 5)
+    # 成立しないセルは相方インデックスが -1 のまま
+    assert np.all(result.partner_iz[~result.feasible] == -1)
+    assert np.all(result.partner_ix[~result.feasible] == -1)
+    assert np.all(np.isnan(result.max_tension[~result.feasible]))
+
+
+def test_antagonistic_candidate_masks_have_required_arm_signs():
+    """A候補は可動域全体でアーム>=+閾値、B候補は<=-閾値であること。"""
+    x_grid = np.linspace(-0.25, 0.25, 7)
+    z_grid = np.linspace(-0.25, 0.25, 7)
+    theta, demand = _antagonistic_demand(1.0)
+    l_arm_min = 0.005
+
+    result = pps.search_antagonistic_placement(
+        x_grid,
+        z_grid,
+        L_ANCHOR,
+        0.0,
+        0.0,
+        theta,
+        demand,
+        l_moment_arm_min=l_arm_min,
+        tension_min=5.0,
+    )
+
+    assert result.candidate_a.any() and result.candidate_b.any()
+    for iz, ix in np.argwhere(result.candidate_a):
+        arm = solve_wire_geometry(
+            x_grid[ix], z_grid[iz], L_ANCHOR, theta, 0.0
+        ).l_moment_arm
+        assert np.all(arm >= l_arm_min)
+    for iz, ix in np.argwhere(result.candidate_b):
+        arm = solve_wire_geometry(
+            x_grid[ix], z_grid[iz], L_ANCHOR, theta, 0.0
+        ).l_moment_arm
+        assert np.all(arm <= -l_arm_min)
+    # A候補とB候補は排他（符号が両立しない）
+    assert not (result.candidate_a & result.candidate_b).any()
+
+
+def test_antagonistic_vectorized_search_matches_brute_force():
+    """ベクトル化した探索が、素朴な総当たりと同じ最適値・同じ組を返す（中核の正しさ検証）。"""
+    x_grid = np.linspace(-0.25, 0.25, 6)
+    z_grid = np.linspace(-0.25, 0.25, 6)
+    theta, demand = _antagonistic_demand(1.0)
+    tension_min = 5.0
+
+    result = pps.search_antagonistic_placement(
+        x_grid,
+        z_grid,
+        L_ANCHOR,
+        0.0,
+        0.0,
+        theta,
+        demand,
+        l_moment_arm_min=0.005,
+        tension_min=tension_min,
+    )
+    best = result.best_pair()
+    assert best is not None
+
+    brute_best = None
+    for iz_a, ix_a in np.argwhere(result.candidate_a):
+        arm_a = solve_wire_geometry(
+            x_grid[ix_a], z_grid[iz_a], L_ANCHOR, theta, 0.0
+        ).l_moment_arm
+        for iz_b, ix_b in np.argwhere(result.candidate_b):
+            arm_b = solve_wire_geometry(
+                x_grid[ix_b], z_grid[iz_b], L_ANCHOR, theta, 0.0
+            ).l_moment_arm
+            res, tension_a, tension_b = dm.antagonistic(
+                demand, arm_a, arm_b, tension_min
+            )
+            if not res.feasible:
+                continue
+            pair_max = max(tension_a.max(), tension_b.max())
+            if brute_best is None or pair_max < brute_best:
+                brute_best = pair_max
+
+    assert brute_best is not None
+    assert result.max_tension[best[0]] == pytest.approx(brute_best)
+
+
+def test_antagonistic_partner_index_reproduces_reported_tension():
+    """報告された相方インデックスで実際に張力を計算し直すと、max_tension に一致する。"""
+    x_grid = np.linspace(-0.25, 0.25, 6)
+    z_grid = np.linspace(-0.25, 0.25, 6)
+    theta, demand = _antagonistic_demand(1.0)
+    tension_min = 5.0
+
+    result = pps.search_antagonistic_placement(
+        x_grid,
+        z_grid,
+        L_ANCHOR,
+        0.0,
+        0.0,
+        theta,
+        demand,
+        l_moment_arm_min=0.005,
+        tension_min=tension_min,
+    )
+    (iz_a, ix_a), (iz_b, ix_b) = result.best_pair()
+
+    arm_a = solve_wire_geometry(
+        x_grid[ix_a], z_grid[iz_a], L_ANCHOR, theta, 0.0
+    ).l_moment_arm
+    arm_b = solve_wire_geometry(
+        x_grid[ix_b], z_grid[iz_b], L_ANCHOR, theta, 0.0
+    ).l_moment_arm
+    res, tension_a, tension_b = dm.antagonistic(demand, arm_a, arm_b, tension_min)
+
+    assert res.feasible
+    assert result.candidate_b[iz_b, ix_b]
+    assert max(tension_a.max(), tension_b.max()) == pytest.approx(
+        result.max_tension[iz_a, ix_a]
+    )
+
+
+def test_antagonistic_is_feasible_where_unidirectional_is_not():
+    """1.0Hz揺動では単方向1本に成立する配置が無いが、拮抗2本なら見つかる（A-2再検討の要点）。"""
+    x_grid = np.linspace(-0.30, 0.30, 13)
+    z_grid = np.linspace(-0.30, 0.30, 13)
+    theta, demand = _antagonistic_demand(1.0)
+    tension_min = 5.0
+
+    uni = pps.search_unidirectional_placement(
+        x_grid,
+        z_grid,
+        L_ANCHOR,
+        0.0,
+        theta,
+        demand,
+        l_moment_arm_min=0.005,
+        tension_min=tension_min,
+    )
+    ant = pps.search_antagonistic_placement(
+        x_grid,
+        z_grid,
+        L_ANCHOR,
+        0.0,
+        0.0,
+        theta,
+        demand,
+        l_moment_arm_min=0.005,
+        tension_min=tension_min,
+    )
+
+    assert uni.best_by_max_tension() is None
+    assert ant.best_pair() is not None
+
+
+def test_antagonistic_returns_none_when_no_candidate_exists():
+    """原点セルしか無いグリッドでは候補が作れず、best_pair() は None を返す。"""
+    x_grid = np.array([0.0])
+    z_grid = np.array([0.0])
+    theta, demand = _antagonistic_demand(1.0)
+
+    result = pps.search_antagonistic_placement(
+        x_grid, z_grid, L_ANCHOR, 0.0, 0.0, theta, demand
+    )
+
+    assert not result.candidate_a.any()
+    assert not result.candidate_b.any()
+    assert result.best_pair() is None
+
+
+def test_antagonistic_range_metric_would_be_rank_equivalent():
+    """拮抗でレンジ指標を提供しない根拠: 従動側が常に tension_min に固定される。
+
+    そのため「2本を合わせた最小張力」は恒等的に tension_min であり、
+    レンジ = max_tension − tension_min となって max_tension と順位同値になる
+    （＝独立した評価指標にならない）。モジュールdocstringの主張を数値で固定する。
+    """
+    theta, demand = _antagonistic_demand(1.0)
+    tension_min = 5.0
+    rng = np.random.default_rng(0)
+
+    checked = 0
+    for _ in range(200):
+        x_a, z_a, x_b, z_b = rng.uniform(-0.30, 0.30, 4)
+        with np.errstate(invalid="ignore", divide="ignore"):
+            arm_a = solve_wire_geometry(x_a, z_a, L_ANCHOR, theta, 0.0).l_moment_arm
+            arm_b = solve_wire_geometry(x_b, z_b, L_ANCHOR, theta, 0.0).l_moment_arm
+        if not (np.all(arm_a >= 0.005) and np.all(arm_b <= -0.005)):
+            continue
+        _, tension_a, tension_b = dm.antagonistic(demand, arm_a, arm_b, tension_min)
+        assert min(tension_a.min(), tension_b.min()) == pytest.approx(tension_min)
+        checked += 1
+
+    assert checked > 0, "符号条件を満たす組が1つも無く、検証になっていない"

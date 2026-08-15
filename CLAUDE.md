@@ -78,14 +78,19 @@ environment management. Everything is hardware-in-the-loop: there is no simulato
   documented numbers): the original "single wire suffices for ±90°" conclusion only checked the gravity-torque
   sign at zero acceleration, missing inertia, slack at range-end, and the motor speed limit — it turned out motor
   speed limit (not inertia) is the binding constraint, and A-2 is now conditional on the target swing frequency
-  (undecided) — see `.ai/logs/2026-08-13_09_a2-drive-mode-reevaluation_01.md`. **Phase D is now implemented for
-  the unidirectional-only case**: `pulley_placement_search.py`'s `search_unidirectional_placement()` grid-searches
-  `(x, z)` (2D — antagonistic mode would need a 4D `(x1,z1,x2,z2)` search that isn't implemented, since A-2 hasn't
-  settled which mode applies) and enforces the singularity (`l5_min`) and `T>=tension_min` constraints; it does
-  **not** enforce wire/link non-interference or physical mountability (no link-shape spec exists yet in this
-  repo) — don't treat its `feasible=True` as "buildable in real hardware". `plotting.py` renders Phase B/C curves
-  and Phase D placement heatmaps via matplotlib (dev-only dependency). Tests run via `uv run pytest` (see
-  Environment & commands below).
+  (undecided) — see `.ai/logs/2026-08-13_09_a2-drive-mode-reevaluation_01.md`. **Phase D is implemented for both
+  drive modes** in `pulley_placement_search.py`: `search_unidirectional_placement()` grid-searches `(x, z)` (2D)
+  and `search_antagonistic_placement()` searches the pair `(x_a, z_a, x_b, z_b)` (4D, vectorized over the
+  B-candidate axis and cross-checked against brute force in the tests; it returns a 2D map marginalized over
+  wire A's placement plus `partner_iz`/`partner_ix` to recover the best partner). Both enforce the singularity
+  (`l5_min`) and `T>=tension_min` constraints but **not** wire/link non-interference or physical mountability
+  (no link-shape spec exists yet in this repo) — don't treat `feasible=True` as "buildable in real hardware",
+  and note the antagonistic search doesn't check wire-to-wire interference either. The antagonistic search
+  deliberately offers no tension-range metric: the follower wire is pinned at `tension_min`, making the range
+  rank-equivalent to `max_tension` (fixed by a test). `assumed_params.py` holds the placeholder values for A-2's
+  four undecided quantities (swing spec, `r_drum`, link inertia, `T_min`) — change them there, not at each call
+  site. `plotting.py` renders Phase B/C curves and both Phase D heatmaps via matplotlib (dev-only dependency).
+  Tests run via `uv run pytest` (see Environment & commands below).
 - `my_ak45/docs_mechanism/`, `my_ak45/quadruped_prep_ja.md` — Japanese-language design/planning notes for the
   wire-driven quadruped described above; `docs_mechanism/` now tracks an implementation (`wire_mechanism/`) as
   design decisions land, `quadruped_prep_ja.md` remains advisory-only.
