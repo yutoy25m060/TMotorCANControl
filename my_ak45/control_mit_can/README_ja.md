@@ -11,12 +11,14 @@ my_ak45_control/
 ├── 1_template_impedance.py  # インピーダンス制御テンプレート
 ├── 2_template_current.py    # 電流制御テンプレート
 ├── 3_template_speed.py      # 速度制御テンプレート
+├── dashboard_demo.py        # リアルタイムWebダッシュボード配信テンプレート
 ├── lib/                     # テンプレート・実験スクリプトの共通コード
 │   ├── config_loader.py    # config.yaml の読み込み
 │   ├── motor_setup.py      # モーター初期化・ゼロ化（単一/複数モーター）
 │   ├── logging_utils.py    # ログファイル命名・制御ループ生成
 │   ├── sync_logger.py      # 複数モーターの同期ロギング（SyncMultiMotorLogger）
-│   └── safety_monitor.py   # 複数モーターの安全監視・緊急停止（SafetyMonitor）
+│   ├── safety_monitor.py   # 複数モーターの安全監視・緊急停止（SafetyMonitor）
+│   └── dashboard_server.py # ブラウザ向けリアルタイムダッシュボード配信（DashboardServer）
 ├── config.yaml              # 設定ファイル
 ├── experiments/             # 実験スクリプト
 │   ├── exp_001_gain_tuning.py             # ゲイン調整実験
@@ -80,6 +82,9 @@ pip install -e .
 pip install pyyaml numpy
 ```
 
+（リアルタイムWebダッシュボード機能は Python 標準ライブラリのみで実装されているため、
+上記に加えて追加でインストールするパッケージはありません）
+
 ### 2. CAN インターフェースの設定
 
 Raspberry Pi で CAN インターフェースを設定：
@@ -117,6 +122,9 @@ python 2_template_current.py
 
 # 速度制御
 python 3_template_speed.py
+
+# リアルタイムWebダッシュボード
+python dashboard_demo.py
 ```
 
 ### 実験の実行
@@ -287,6 +295,42 @@ motor.set_output_torque_newton_meters(desired_torque)  # desired_torque は mult
 [`my_ak45/Mujoco/docs_syid/AK45-36_sysid_作業手順.md`](../Mujoco/docs_syid/AK45-36_sysid_作業手順.md)
 を参照してください。
 
+### 6. リアルタイムWebダッシュボード
+
+制御スクリプト実行中のモーター状態（位置・速度・トルク・電流・温度）を、同一LAN上の
+別端末のブラウザからリアルタイムに閲覧できます。CLAUDE.md の「ヘッドレスRaspberry Pi/Linux
+向け構成のためGUI依存関係を持ち込まない」という方針に従い、標準ライブラリの
+`http.server`（`ThreadingHTTPServer` + Server-Sent Events）のみで実装されており、
+Flask 等の追加インストールは不要です。ブラウザ側もネイティブの `EventSource` API と
+バニラJSのみで、外部ライブラリ・CDNには依存しません。
+
+**アクセス方法:**
+1. Piと閲覧する端末を同一LAN上に置く
+2. 制御スクリプト側で `DashboardServer` を起動すると、コンソールに `http://<PiのIP>:8000/`
+   のようなURLが表示される（IPアドレスの自動検出に失敗した場合は `hostname -I` 等でPi自身の
+   IPアドレスを確認する）
+3. 別端末のブラウザで、表示されたURLを開く
+
+**API:** `SafetyMonitor`/`SyncMultiMotorLogger` と同じく `motors`/`motor_names` のパラレル
+リストを受け取るため、単一モーターは `motors=[motor]` の1要素リストで、複数モーター
+（exp_003/007相当）にもそのまま使えます。
+
+**使用例:**
+```python
+from lib.dashboard_server import DashboardServer
+
+with DashboardServer([motor], ["motor1"], LOG_VARS, port=8000) as dashboard:
+    print(f"ダッシュボード: {dashboard.url}")
+    loop = make_realtime_loop()
+    for t in loop:
+        motor.update()
+        motor.set_output_angle_radians(desired_angle)
+        dashboard.publish(t)  # 制御ループの周期に関わらず、ブラウザへは10Hz固定で配信される
+```
+
+**テンプレート:**
+- `dashboard_demo.py`: インピーダンス制御 + ダッシュボード配信の最小例
+
 ## 安全上の注意
 
 1. **温度監視**: MOSFET 温度が config.yaml の `motor.max_temp`（現在75℃。根拠は config.yaml
@@ -310,6 +354,10 @@ motor.set_output_torque_newton_meters(desired_torque)  # desired_torque は mult
 による復元力を持たない開ループのトルク指令であるため、実測値ベースの `SafetyMonitor` によるしきい値
 超過時の緊急停止に加えて、指令トルク自体も `safety.max_torque` でクランプする2層の保護を行っています。
 それでも初回実行時は目視監視のもとで行ってください。
+
+`dashboard_server.py`（`DashboardServer`）はモーターへ一切のコマンドを送らない監視専用の機能ですが、
+`host="0.0.0.0"` を既定として認証なしで同一LAN上に読み取り専用データを公開します。信頼できない
+ネットワークでは使用しないでください。
 
 ## トラブルシューティング
 
@@ -364,6 +412,12 @@ MOSFET 温度が高すぎます
 1. テンプレートファイルをコピー
 2. TMotorManager_mit_can のメソッドを適切に使用
 3. 安全チェックを追加
+
+### 既存スクリプトへのダッシュボード追加
+
+`DashboardServer` を `motors`/`motor_names` のリストと共に構築し、制御ループ内で
+`dashboard.publish(t)` を1回呼ぶだけです（`dashboard_demo.py` 参照）。`SyncMultiMotorLogger`
+と同じ `log_vars` を渡せば、複数モーター構成でもそのまま使えます。
 
 ## 参考資料
 
