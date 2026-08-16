@@ -81,7 +81,7 @@ with console_log(RUN_DIR):
         motor.set_impedance_gains_real_unit(K=K, B=B)
 
         with DashboardServer(
-            [motor], [motor_name], LOG_VARS, host=DASHBOARD_HOST, port=DASHBOARD_PORT
+            [motor], [motor_name], LOG_VARS, host=DASHBOARD_HOST, port=DASHBOARD_PORT, safety_monitor=safety_monitor
         ) as dashboard:
             print(f"ダッシュボード: {dashboard.url}")
             print("同一LAN上の別端末のブラウザで上記URLを開いてください（認証はありません）")

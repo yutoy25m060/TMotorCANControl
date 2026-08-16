@@ -18,6 +18,13 @@ CLAUDE.md の方針（「ヘッドレスRaspberry Pi/Linux向けの構成のた�
 - SafetyMonitor / SyncMultiMotorLogger と同じく motors・motor_names のパラレルリストを
   受け取る設計にしており、単一モーター（motors=[motor]）・複数モーター（exp_003/007相当）の
   どちらにもそのまま使える。
+- SafetyMonitor はオプションで連携できる（safety_monitor 引数）。publish() は
+  safety_monitor.check() のみを呼ぶ（安全上限を超えているかを読むだけの純粋関数）。
+  safety_monitor.update_and_check() は使わない — これは内部で motor.update() を呼ぶため、
+  制御ループ側が既にその周期の update() を呼んだ後に publish() を呼ぶ想定の中で二重に
+  update() してしまうと、CAN送信のタイミング・状態遷移を余計に乱すおそれがあるため。
+  ダッシュボードは安全状態を表示するだけで、緊急停止の実行はあくまで制御ループ側
+  （safety_monitor.update_and_check()）の責務のまま変えない。
 """
 
 import json
@@ -30,7 +37,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 class DashboardServer:
     """複数モーターの LOG_FUNCTIONS 値を、ブラウザへSSEでライブ配信するダッシュボードサーバー。"""
 
-    def __init__(self, motors, motor_names, log_vars, host="0.0.0.0", port=8000, push_interval=0.1):
+    def __init__(
+        self, motors, motor_names, log_vars, host="0.0.0.0", port=8000, push_interval=0.1, safety_monitor=None
+    ):
         """
         Args:
             motors: TMotorManager_mit_can インスタンスのリスト（with ブロックで既に __enter__ 済みのもの）。
@@ -42,6 +51,10 @@ class DashboardServer:
             port: バインドするポート。既定 8000。
             push_interval: ブラウザへのSSE配信間隔 [秒]。既定 0.1（10Hz）。制御ループの実際の
                 周期とは独立。
+            safety_monitor: lib.safety_monitor.SafetyMonitor インスタンス（省略可）。指定すると
+                publish() のたびに safety_monitor.check() の結果（安全上限超過の有無・
+                メッセージ）をダッシュボード上のバナーとして表示する。ダッシュボード自身は
+                これを読むだけで、緊急停止の実行やモーターへのコマンド送信は一切行わない。
         """
         self._motors = motors
         self._motor_names = motor_names
@@ -49,9 +62,16 @@ class DashboardServer:
         self._host = host
         self._port = port
         self._push_interval = push_interval
+        self._safety_monitor = safety_monitor
 
         self._lock = threading.Lock()
-        self._state = {"t": None, "updated_at": None, "motors": {name: {} for name in motor_names}}
+        self._state = {
+            "t": None,
+            "updated_at": None,
+            "motors": {name: {} for name in motor_names},
+            "safety_ok": None,
+            "safety_message": None,
+        }
         self._stop_event = threading.Event()
 
         self._httpd = None
@@ -77,10 +97,18 @@ class DashboardServer:
             name: {var: motor.LOG_FUNCTIONS[var]() for var in self._log_vars}
             for name, motor in zip(self._motor_names, self._motors)
         }
+        safety_ok = None
+        safety_message = None
+        if self._safety_monitor is not None:
+            exceeded, message = self._safety_monitor.check()
+            safety_ok = not exceeded
+            safety_message = message
         with self._lock:
             self._state["t"] = t
             self._state["motors"] = snapshot
             self._state["updated_at"] = time.time()
+            self._state["safety_ok"] = safety_ok
+            self._state["safety_message"] = safety_message
 
     def _snapshot_payload(self):
         """HTTPハンドラ側から呼ぶ。共有状態のスナップショット＋鮮度（age_seconds）を返す。"""
@@ -90,6 +118,8 @@ class DashboardServer:
                 "t": self._state["t"],
                 "updated_at": updated_at,
                 "motors": self._state["motors"],
+                "safety_ok": self._state["safety_ok"],
+                "safety_message": self._state["safety_message"],
             }
         payload["age_seconds"] = round(time.time() - updated_at, 2) if updated_at is not None else None
         return payload
@@ -187,8 +217,18 @@ _DASHBOARD_HTML = """<!doctype html>
     padding: 1.5rem;
   }
   h1 { font-size: 1.3rem; margin: 0 0 0.75rem; }
-  #freshness { margin-bottom: 1rem; color: #555; font-size: 0.9rem; }
+  #freshness { margin-bottom: 0.5rem; color: #555; font-size: 0.9rem; }
   #freshness.stale { color: #b91c1c; font-weight: bold; }
+  #safety-banner {
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+    font-weight: bold;
+    padding: 0.4rem 0.7rem;
+    border-radius: 6px;
+    display: inline-block;
+  }
+  #safety-banner.ok { color: #15803d; background: #dcfce7; }
+  #safety-banner.exceeded { color: #b91c1c; background: #fee2e2; }
   #motors { display: flex; flex-wrap: wrap; gap: 1rem; }
   .motor-card {
     background: #fff;
@@ -212,6 +252,7 @@ _DASHBOARD_HTML = """<!doctype html>
 <body>
 <h1>TMotorCANControl ダッシュボード</h1>
 <div id="freshness">データ待機中...</div>
+<div id="safety-banner" hidden></div>
 <div id="motors"></div>
 <script>
 const LABELS = {
@@ -278,6 +319,24 @@ function updateFreshnessBanner(ageSeconds) {
   el.className = ageSeconds > 1.0 ? "stale" : "";
 }
 
+function updateSafetyBanner(safetyOk, safetyMessage) {
+  const el = document.getElementById("safety-banner");
+  if (safetyOk === null || safetyOk === undefined) {
+    // SafetyMonitor が接続されていないダッシュボード（安全状態は不明であって「正常」ではない
+    // ため、誤って安全と伝えないようバナー自体を出さない）
+    el.hidden = true;
+    return;
+  }
+  el.hidden = false;
+  if (safetyOk) {
+    el.textContent = "安全: 正常";
+    el.className = "ok";
+  } else {
+    el.textContent = "\\u26a0 安全上限超過: " + (safetyMessage || "");
+    el.className = "exceeded";
+  }
+}
+
 function drawChart(name) {
   const canvas = document.getElementById("chart-" + name);
   if (!canvas) return;
@@ -307,6 +366,7 @@ function handleMessage(payload) {
   if (!builtCards) buildCards(payload.motors);
 
   updateFreshnessBanner(payload.age_seconds);
+  updateSafetyBanner(payload.safety_ok, payload.safety_message);
   const stale = payload.age_seconds !== null && payload.age_seconds !== undefined && payload.age_seconds > 1.0;
 
   for (const name of Object.keys(payload.motors)) {

@@ -11,7 +11,8 @@ my_ak45_control/
 ├── 1_template_impedance.py  # インピーダンス制御テンプレート
 ├── 2_template_current.py    # 電流制御テンプレート
 ├── 3_template_speed.py      # 速度制御テンプレート
-├── dashboard_demo.py        # リアルタイムWebダッシュボード配信テンプレート
+├── dashboard_demo.py        # リアルタイムWebダッシュボード配信テンプレート（単一モーター）
+├── dashboard_demo_multi_motor.py  # 同上（複数モーター版、exp_003_multi_motor.py相当の構成）
 ├── lib/                     # テンプレート・実験スクリプトの共通コード
 │   ├── config_loader.py    # config.yaml の読み込み
 │   ├── motor_setup.py      # モーター初期化・ゼロ化（単一/複数モーター）
@@ -123,8 +124,11 @@ python 2_template_current.py
 # 速度制御
 python 3_template_speed.py
 
-# リアルタイムWebダッシュボード
+# リアルタイムWebダッシュボード（単一モーター）
 python dashboard_demo.py
+
+# リアルタイムWebダッシュボード（複数モーター）
+python dashboard_demo_multi_motor.py
 ```
 
 ### 実験の実行
@@ -315,21 +319,34 @@ Flask 等の追加インストールは不要です。ブラウザ側もネイ�
 リストを受け取るため、単一モーターは `motors=[motor]` の1要素リストで、複数モーター
 （exp_003/007相当）にもそのまま使えます。
 
+**SafetyMonitor連携（任意）:** `safety_monitor` 引数に `SafetyMonitor` インスタンスを渡すと、
+`publish()` のたびに `safety_monitor.check()`（安全上限超過の有無を読むだけの純粋関数。
+`update_and_check()` とは異なり `motor.update()` は呼ばない）の結果をダッシュボード上の
+バナーとして表示します。渡さない場合はバナー自体を表示しません（「未監視」と「正常」を
+区別するため）。**ダッシュボードは安全状態を表示するだけで、モーターへのコマンド送信・
+緊急停止の実行は一切行いません**（緊急停止の実行は従来どおり制御ループ側の
+`safety_monitor.update_and_check()` の責務です）。
+
 **使用例:**
 ```python
 from lib.dashboard_server import DashboardServer
 
-with DashboardServer([motor], ["motor1"], LOG_VARS, port=8000) as dashboard:
+with DashboardServer(
+    [motor], ["motor1"], LOG_VARS, port=8000, safety_monitor=safety_monitor
+) as dashboard:
     print(f"ダッシュボード: {dashboard.url}")
     loop = make_realtime_loop()
     for t in loop:
-        motor.update()
+        if safety_monitor.update_and_check():
+            break
         motor.set_output_angle_radians(desired_angle)
         dashboard.publish(t)  # 制御ループの周期に関わらず、ブラウザへは10Hz固定で配信される
 ```
 
 **テンプレート:**
-- `dashboard_demo.py`: インピーダンス制御 + ダッシュボード配信の最小例
+- `dashboard_demo.py`: インピーダンス制御 + ダッシュボード配信（単一モーター、SafetyMonitor連携あり）の最小例
+- `dashboard_demo_multi_motor.py`: `experiments/exp_003_multi_motor.py` 相当の複数モーター構成
+  にダッシュボード配信を追加した例
 
 ## 安全上の注意
 
