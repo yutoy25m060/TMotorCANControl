@@ -16,6 +16,10 @@
         theta_range=(-np.pi/2, np.pi/2),
         output_file="phase_bc_plot.png"
     )
+
+機構そのものが動く様子をGIFで見たい場合は `animate_wire_mechanism()` /
+`animate_antagonistic_mechanism()` を使う（`matplotlib.animation.PillowWriter` を使うため
+追加インストールは不要。`pillow` は matplotlib 経由で既に解決済み）。
 """
 
 import numpy as np
@@ -400,6 +404,289 @@ def plot_antagonistic_placement_heatmap(
         print(f"Plot saved to: {output_file}")
 
     return fig, ax
+
+
+def animate_wire_mechanism(
+    x: float,
+    z: float,
+    l_anchor: float,
+    theta_anchor_offset: float,
+    theta_range: tuple[float, float] = (-np.pi / 2, np.pi / 2),
+    num_points: int = 120,
+    tension: np.ndarray | None = None,
+    fps: int = 24,
+    output_file: str | None = None,
+) -> tuple:
+    """単方向ワイヤー1本の機構が動く様子を2Dアニメーション（GIF）で表示する。
+
+    関節を原点に固定し、リンク（原点→アンカー点）と定滑車→アンカー点のワイヤーを
+    `theta_joint` の掃引に合わせて描き直す。往路→復路で1周期分の往復揺動として
+    ループするので、途中で瞬間移動するような不自然な切り替わりは起きない。
+
+    定滑車の丸マーカーは模式的なもので、半径そのものに物理的な意味はない
+    （`wire_kinematics.py` のモデルは定滑車接点を点として扱う。実際のプーリー半径・
+    ドラム半径を考慮した繰り出し量の変換は未実装、E-2節参照）。
+
+    Parameters
+    ----------
+    x, z : float
+        定滑車の直交座標 [m]
+    l_anchor : float
+        関節からワイヤー固定位置までの距離 [m]
+    theta_anchor_offset : float
+        リンクとワイヤー固定位置のなす角 [rad]
+    theta_range : tuple[float, float]
+        関節角掃引範囲 [rad]（デフォルト: -π/2 to π/2）
+    num_points : int
+        片道あたりのフレーム数（デフォルト: 120。実際のGIFは往復で約2倍のフレーム数になる）
+    tension : np.ndarray | None
+        `theta_range` を `num_points` 点で `np.linspace` した掃引に対応する張力 [N]
+        （例えば `wire_statics.solve_wire_tension()` の結果）。与えるとワイヤーの色を
+        張力でマッピングする（`viridis`）。None ならグレー固定色。
+    fps : int
+        GIFのフレームレート（デフォルト: 24）
+    output_file : str | None
+        出力ファイルパス（`.gif` 推奨）。指定すると `PillowWriter` で保存する。
+        Noneの場合は保存せず、FuncAnimationオブジェクトを返すのみ。
+
+    Returns
+    -------
+    tuple
+        (fig, ax, anim) — matplotlib の Figure, Axes, FuncAnimation オブジェクト
+    """
+    try:
+        import matplotlib.pyplot as plt
+        from matplotlib.animation import FuncAnimation, PillowWriter
+        from matplotlib.colors import Normalize
+    except ImportError as e:
+        raise ImportError(
+            "matplotlib is required for plotting. Install with: pip install matplotlib"
+        ) from e
+
+    theta_joint = np.linspace(theta_range[0], theta_range[1], num_points)
+    theta_frames = np.concatenate([theta_joint, theta_joint[::-1]])
+    theta_anchor = theta_frames - theta_anchor_offset
+    x_anchor = l_anchor * np.cos(theta_anchor)
+    z_anchor = -l_anchor * np.sin(theta_anchor)
+
+    tension_frames = None
+    norm = None
+    cmap = None
+    if tension is not None:
+        tension = np.asarray(tension, dtype=float)
+        tension_frames = np.concatenate([tension, tension[::-1]])
+        norm = Normalize(vmin=np.nanmin(tension_frames), vmax=np.nanmax(tension_frames))
+        cmap = plt.colormaps["viridis"]
+
+    fig, ax = plt.subplots(figsize=(6, 6))
+
+    all_x = np.concatenate([x_anchor, [x, 0.0]])
+    all_z = np.concatenate([z_anchor, [z, 0.0]])
+    margin = 0.1 * max(all_x.max() - all_x.min(), all_z.max() - all_z.min(), 1e-6)
+    ax.set_xlim(all_x.min() - margin, all_x.max() + margin)
+    ax.set_ylim(all_z.min() - margin, all_z.max() + margin)
+    ax.set_aspect("equal")
+    ax.set_xlabel("x [m]")
+    ax.set_ylabel("z [m]")
+    ax.set_title("Wire-Driven Joint Mechanism")
+    ax.grid(True, alpha=0.3)
+
+    ax.plot(0, 0, "ko", markersize=8, zorder=5, label="joint")
+    ax.plot(
+        x,
+        z,
+        "o",
+        color="tab:gray",
+        markersize=14,
+        markeredgecolor="k",
+        zorder=4,
+        label="pulley",
+    )
+
+    (link_line,) = ax.plot(
+        [], [], "-", color="tab:blue", linewidth=3, zorder=3, label="link"
+    )
+    (wire_line,) = ax.plot(
+        [], [], "-", color="tab:gray", linewidth=1.5, zorder=2, label="wire"
+    )
+    (anchor_point,) = ax.plot([], [], "o", color="tab:blue", markersize=6, zorder=4)
+    text = ax.text(0.02, 0.98, "", transform=ax.transAxes, va="top", fontsize=10)
+    ax.legend(loc="lower right", fontsize=9)
+
+    def update(i):
+        link_line.set_data([0, x_anchor[i]], [0, z_anchor[i]])
+        wire_line.set_data([x, x_anchor[i]], [z, z_anchor[i]])
+        anchor_point.set_data([x_anchor[i]], [z_anchor[i]])
+        info = f"θ0 = {np.degrees(theta_frames[i]):+.1f}°"
+        if tension_frames is not None:
+            wire_line.set_color(cmap(norm(tension_frames[i])))
+            info += f"\nT = {tension_frames[i]:.1f} N"
+        text.set_text(info)
+        return link_line, wire_line, anchor_point, text
+
+    anim = FuncAnimation(
+        fig, update, frames=len(theta_frames), interval=1000 / fps, blit=False
+    )
+
+    if output_file:
+        anim.save(output_file, writer=PillowWriter(fps=fps))
+        print(f"Animation saved to: {output_file}")
+
+    return fig, ax, anim
+
+
+def animate_antagonistic_mechanism(
+    x_a: float,
+    z_a: float,
+    x_b: float,
+    z_b: float,
+    l_anchor: float,
+    theta_anchor_offset_a: float,
+    theta_anchor_offset_b: float,
+    theta_range: tuple[float, float] = (-np.pi / 2, np.pi / 2),
+    num_points: int = 120,
+    tension_a: np.ndarray | None = None,
+    tension_b: np.ndarray | None = None,
+    fps: int = 24,
+    output_file: str | None = None,
+) -> tuple:
+    """拮抗2本の機構が動く様子を2Dアニメーション（GIF）で表示する。
+
+    引数構成は `pulley_placement_search.search_antagonistic_placement()` に対応する。
+    ワイヤーA・Bそれぞれのアンカー点を、関節（原点）を頂点とする三角形の辺として描く
+    ことで、2本が同じ剛体リンク上の異なる固定点に取り付いていることを表す
+    （`theta_anchor_offset_a == theta_anchor_offset_b` なら2辺が重なり、実質1点に見える）。
+
+    Parameters
+    ----------
+    x_a, z_a, x_b, z_b : float
+        ワイヤーA・Bそれぞれの定滑車座標 [m]
+    l_anchor : float
+        関節からワイヤー固定位置までの距離 [m]（A・B共通）
+    theta_anchor_offset_a, theta_anchor_offset_b : float
+        ワイヤーA・Bそれぞれのアンカーオフセット角 [rad]
+    theta_range, num_points, fps, output_file :
+        `animate_wire_mechanism()` と同じ意味
+    tension_a, tension_b : np.ndarray | None
+        各ワイヤーの張力 [N]（例えば `drive_modes.antagonistic()` の戻り値）。
+        与えるとワイヤーAは赤系、ワイヤーBは青系のcolormapで色分けする。
+
+    Returns
+    -------
+    tuple
+        (fig, ax, anim) — matplotlib の Figure, Axes, FuncAnimation オブジェクト
+    """
+    try:
+        import matplotlib.pyplot as plt
+        from matplotlib.animation import FuncAnimation, PillowWriter
+        from matplotlib.colors import Normalize
+    except ImportError as e:
+        raise ImportError(
+            "matplotlib is required for plotting. Install with: pip install matplotlib"
+        ) from e
+
+    theta_joint = np.linspace(theta_range[0], theta_range[1], num_points)
+    theta_frames = np.concatenate([theta_joint, theta_joint[::-1]])
+    theta_anchor_a = theta_frames - theta_anchor_offset_a
+    theta_anchor_b = theta_frames - theta_anchor_offset_b
+    xa_anchor = l_anchor * np.cos(theta_anchor_a)
+    za_anchor = -l_anchor * np.sin(theta_anchor_a)
+    xb_anchor = l_anchor * np.cos(theta_anchor_b)
+    zb_anchor = -l_anchor * np.sin(theta_anchor_b)
+
+    cmap_a = plt.colormaps["autumn"]
+    cmap_b = plt.colormaps["winter"]
+    tension_a_frames = tension_b_frames = None
+    norm_a = norm_b = None
+    if tension_a is not None:
+        tension_a = np.asarray(tension_a, dtype=float)
+        tension_a_frames = np.concatenate([tension_a, tension_a[::-1]])
+        norm_a = Normalize(
+            vmin=np.nanmin(tension_a_frames), vmax=np.nanmax(tension_a_frames)
+        )
+    if tension_b is not None:
+        tension_b = np.asarray(tension_b, dtype=float)
+        tension_b_frames = np.concatenate([tension_b, tension_b[::-1]])
+        norm_b = Normalize(
+            vmin=np.nanmin(tension_b_frames), vmax=np.nanmax(tension_b_frames)
+        )
+
+    fig, ax = plt.subplots(figsize=(6, 6))
+
+    all_x = np.concatenate([xa_anchor, xb_anchor, [x_a, x_b, 0.0]])
+    all_z = np.concatenate([za_anchor, zb_anchor, [z_a, z_b, 0.0]])
+    margin = 0.1 * max(all_x.max() - all_x.min(), all_z.max() - all_z.min(), 1e-6)
+    ax.set_xlim(all_x.min() - margin, all_x.max() + margin)
+    ax.set_ylim(all_z.min() - margin, all_z.max() + margin)
+    ax.set_aspect("equal")
+    ax.set_xlabel("x [m]")
+    ax.set_ylabel("z [m]")
+    ax.set_title("Antagonistic Wire-Driven Joint Mechanism")
+    ax.grid(True, alpha=0.3)
+
+    ax.plot(0, 0, "ko", markersize=8, zorder=5, label="joint")
+    ax.plot(
+        x_a,
+        z_a,
+        "o",
+        color="tab:red",
+        markersize=12,
+        markeredgecolor="k",
+        zorder=4,
+        label="pulley A",
+    )
+    ax.plot(
+        x_b,
+        z_b,
+        "o",
+        color="tab:blue",
+        markersize=12,
+        markeredgecolor="k",
+        zorder=4,
+        label="pulley B",
+    )
+
+    (link_shape,) = ax.plot(
+        [], [], "-", color="0.3", linewidth=2, zorder=3, label="link"
+    )
+    (wire_line_a,) = ax.plot(
+        [], [], "-", color="tab:red", linewidth=1.5, zorder=2, label="wire A"
+    )
+    (wire_line_b,) = ax.plot(
+        [], [], "-", color="tab:blue", linewidth=1.5, zorder=2, label="wire B"
+    )
+    (anchor_a,) = ax.plot([], [], "o", color="tab:red", markersize=6, zorder=4)
+    (anchor_b,) = ax.plot([], [], "o", color="tab:blue", markersize=6, zorder=4)
+    text = ax.text(0.02, 0.98, "", transform=ax.transAxes, va="top", fontsize=9)
+    ax.legend(loc="lower right", fontsize=8)
+
+    def update(i):
+        link_shape.set_data(
+            [0, xa_anchor[i], xb_anchor[i], 0], [0, za_anchor[i], zb_anchor[i], 0]
+        )
+        wire_line_a.set_data([x_a, xa_anchor[i]], [z_a, za_anchor[i]])
+        wire_line_b.set_data([x_b, xb_anchor[i]], [z_b, zb_anchor[i]])
+        anchor_a.set_data([xa_anchor[i]], [za_anchor[i]])
+        anchor_b.set_data([xb_anchor[i]], [zb_anchor[i]])
+        info = f"θ0 = {np.degrees(theta_frames[i]):+.1f}°"
+        if tension_a_frames is not None:
+            wire_line_a.set_color(cmap_a(norm_a(tension_a_frames[i])))
+            info += f"\nT_a = {tension_a_frames[i]:.1f} N"
+        if tension_b_frames is not None:
+            wire_line_b.set_color(cmap_b(norm_b(tension_b_frames[i])))
+            info += f"\nT_b = {tension_b_frames[i]:.1f} N"
+        text.set_text(info)
+        return link_shape, wire_line_a, wire_line_b, anchor_a, anchor_b, text
+
+    anim = FuncAnimation(
+        fig, update, frames=len(theta_frames), interval=1000 / fps, blit=False
+    )
+
+    if output_file:
+        anim.save(output_file, writer=PillowWriter(fps=fps))
+        print(f"Animation saved to: {output_file}")
+
+    return fig, ax, anim
 
 
 # ===== Convenience script runner =====
