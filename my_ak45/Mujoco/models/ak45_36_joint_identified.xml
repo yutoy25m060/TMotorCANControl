@@ -1,0 +1,59 @@
+<mujoco model="ak45_36_joint_identified">
+  <!--
+    AK45-36 単軸・開ループトルク実験モデル（フェーズ5: 同定結果を反映済み）。
+
+    ベースは models/ak45_36_joint.xml と同一（構造・センサー・アクチュエータの説明は
+    そちらを参照）。このファイルは armature/damping/frictionloss に
+    identification/identify.py フェーズ3 ステージ3（armature + frictionloss + damping）
+    の同定結果を焼き込んだものであり、models/ak45_36_joint.xml には書き込まない
+    （そちらの damping=0/frictionloss=0 は段階的同定が「そのステージで対象にしない
+    パラメータの固定値」として依存しているベースラインのため、上書きすると
+    ステージ1/2の意味が変わってしまう。作業手順書 `docs_syid/AK45-36_sysid_作業手順.md`
+    フェーズ5 項目20参照）。
+
+    同定値の出どころ:
+    identification/results/stage3_desired_torque_seg0.5s_shift2_off0/params.yaml
+    （入力: desired_torque、区間長0.5s、shift=2、採用3ラン48区間、
+    cost 15.95 → 0.216。leave-one-run-out 交差検証でも同ステージが最良
+    （位置RMS 11.58 mrad）として採用が決定している。作業手順書フェーズ4 項目17）。
+
+    注意点（作業手順書フェーズ3の決着・未確定事項を参照）:
+    - 入力は desired_torque（指令トルク）。そのため armature は指令-実測トルクの
+      定常ゲイン K≈0.817 を吸収しており、真の反射慣性(≈1/K倍小さい値)より過大。
+      同じ Kt_actual 換算の指令トルクでモデルを駆動する用途では自己整合しているが、
+      armature の値を物理的なロータ慣性として引用しないこと。
+    - frictionloss と damping は部分的に識別不能（一方を追加すると他方が動く）。
+      個別の値は分割間で frictionloss ±6.5%・damping ±9.1% 程度ばらつくが、
+      両者の組としては leave-one-run-out 交差検証で汎化性能を改善しており、
+      ペアとしての採用に問題はない。
+  -->
+  <compiler angle="radian" autolimits="true"/>
+
+  <option integrator="implicitfast" timestep="0.001">
+    <flag contact="disable"/>
+  </option>
+
+  <worldbody>
+    <body name="output_shaft" pos="0 0 0">
+      <!-- プレースホルダー値（ak45_36_joint.xml と同じ）。実体の慣性は joint armature が担う。 -->
+      <inertial pos="0 0 0" mass="0.05" diaginertia="1e-5 1e-5 1e-5"/>
+      <!-- armature/damping/frictionloss はフェーズ3ステージ3の同定値（上記コメント参照）。
+           固定の初期値ではなく、これがこのファイルの主目的（フェーズ5成果物）。 -->
+      <joint name="ak45_joint" type="hinge" axis="0 0 1" range="-3.14 3.14"
+             armature="0.012749758164055498" damping="0.02701614746069557"
+             frictionloss="0.097735278042639"/>
+      <geom type="cylinder" size="0.02 0.01" rgba="0.6 0.6 0.6 1"/>
+    </body>
+  </worldbody>
+
+  <actuator>
+    <!-- gear="1": 実機側で既にGEAR_RATIO・Kt_actual換算済みの出力軸トルク[Nm]を
+         そのまま受け取る（motor.set_output_torque_newton_meters() と同じ単位系）。 -->
+    <motor name="joint_torque" joint="ak45_joint" gear="1"/>
+  </actuator>
+
+  <sensor>
+    <jointpos name="output_angle" joint="ak45_joint"/>
+    <jointvel name="output_velocity" joint="ak45_joint"/>
+  </sensor>
+</mujoco>
