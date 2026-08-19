@@ -70,3 +70,35 @@ class SafetyMonitor:
                 motor.power_off()
             except Exception as e:
                 print(f"  {name} の電源オフ中にエラー: {e}")
+
+    def update_and_check(self):
+        """全モーターの update() を呼び、続けて check() で安全上限を確認する。
+
+        exp_003_multi_motor.py で確立された「update() を try/except RuntimeError で囲み、
+        検知したら trigger_emergency_stop() へ合流させる（update() 自身が先に温度超過を
+        検知するケースの防御線）→ check() で位置/速度/トルク/温度の上限超過を確認」という
+        パターンを、呼び出し側での重複実装を避けるためにこのクラスへ集約したもの。単一
+        モーター（motors=[motor] の1要素リスト）でも複数モーターでも同じ流れで使える。
+
+        制御コマンド（set_output_angle_radians() 等）はこのメソッドの前後どちらでも
+        呼び出し側の責任で行う（制御モードごとに異なるため、ここでは扱わない）。
+
+        Returns:
+            True: 異常を検知し緊急停止した場合（呼び出し側はループを break する想定）。
+            False: 異常なし、または emergency_stop_enabled=False で警告のみ出した場合。
+        """
+        try:
+            for motor in self.motors:
+                motor.update()
+        except RuntimeError as e:
+            self.trigger_emergency_stop(str(e))
+            return True
+
+        exceeded, message = self.check()
+        if not exceeded:
+            return False
+        if self.emergency_stop_enabled:
+            self.trigger_emergency_stop(message)
+            return True
+        print(f"警告（緊急停止は無効）: {message}")
+        return False

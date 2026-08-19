@@ -27,6 +27,7 @@ from lib.logging_utils import (
     make_run_dir,
 )
 from lib.motor_setup import build_motor_manager, get_motor_config, zero_position
+from lib.safety_monitor import SafetyMonitor
 
 # 設定ファイルの読み込み
 config = load_config()
@@ -41,6 +42,12 @@ B = config["control"]["impedance"]["B"]
 AMPLITUDE = np.pi / 2  # 振幅 [rad] (90°)
 PERIOD = 4.0  # 周期 [秒]
 RUNTIME_SECONDS = 20  # 実験時間 [秒]
+
+# 安全制限パラメータ
+MAX_POSITION = config["safety"]["max_position"]
+MAX_VELOCITY = config["safety"]["max_velocity"]
+MAX_TORQUE = config["safety"]["max_torque"]
+EMERGENCY_STOP_ENABLED = config["safety"]["emergency_stop"]
 
 # 実行フォルダ（logs/exp004_trajectory_{timestamp}/）を作成し、CSV・コンソールログをまとめる
 RUN_DIR = make_run_dir("exp004_trajectory")
@@ -75,7 +82,7 @@ def calculate_trajectory_velocity(t, amplitude, period, dt=0.01):
 
 
 with console_log(RUN_DIR):
-    print(f"=== 実験 004: 軌跡追従制御 ===")
+    print("=== 実験 004: 軌跡追従制御 ===")
     print(f"モーター: {motor_config.type} (ID: {motor_config.id})")
     print(f"制御ゲイン: K={K} Nm/rad, B={B} Nm/(rad/s)")
     print(f"軌跡: 三角波, 振幅={AMPLITUDE:.3f} rad, 周期={PERIOD} 秒")
@@ -84,6 +91,16 @@ with console_log(RUN_DIR):
 
     # モーター制御
     with build_motor_manager(motor_config, csv_file=LOG_FILE, log_vars=LOG_VARS) as motor:
+        # 位置/速度/トルク/温度の上限監視（超過時は全モーター＝このモーター1台を緊急停止）
+        safety_monitor = SafetyMonitor(
+            [motor],
+            [f"{motor_config.type}(ID{motor_config.id})"],
+            MAX_POSITION,
+            MAX_VELOCITY,
+            MAX_TORQUE,
+            emergency_stop=EMERGENCY_STOP_ENABLED,
+        )
+
         # 位置ゼロ化
         zero_position(motor)
 
@@ -99,8 +116,9 @@ with console_log(RUN_DIR):
             # 軌跡生成
             desired_pos = generate_triangle_trajectory(t, AMPLITUDE, PERIOD)
 
-            # モーター制御
-            motor.update()
+            # モーター制御 + 安全上限監視。上限超過時は緊急停止してループを抜ける
+            if safety_monitor.update_and_check():
+                break
             motor.set_output_angle_radians(desired_pos)
 
             # 追従誤差計算

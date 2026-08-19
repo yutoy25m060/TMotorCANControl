@@ -1,11 +1,13 @@
-"""インピーダンス制御テンプレート
+"""速度制御テンプレート
 
-このテンプレートは、AK45-36 のインピーダンス制御（位置 + 速度ゲイン）を実装します。
-剛性 K [Nm/rad] と減衰 B [Nm/(rad/s)] を設定して、ばね-ダンパー系の制御を行います。
+このテンプレートは、AK45-36 のプレーン速度モード（インピーダンス・電流のいずれとも異なる、
+位置ゲイン・フィードフォワード電流を常に0で送るモード）を実装します。
+制御則は (v_des - v_actual)*kd = iq で、目標速度は set_output_velocity_radians_per_second() で
+設定します（mit_can.py の set_speed_gains()/set_output_velocity_radians_per_second() 参照）。
 
 使用方法:
-1. config.yaml の control.impedance.K と B を調整
-2. 目標位置を set_output_angle_radians() で設定
+1. config.yaml の control.speed.kd を調整
+2. 目標速度を set_output_velocity_radians_per_second() で設定
 3. 制御ループで update() を呼び出し
 """
 
@@ -25,32 +27,30 @@ config = load_config()
 motor_config = get_motor_config(config)
 LOG_VARS = config["logging"]["vars"]
 
-# インピーダンス制御パラメータ
-K = config["control"]["impedance"]["K"]  # 剛性 [Nm/rad]
-B = config["control"]["impedance"]["B"]  # 減衰 [Nm/(rad/s)]
+# 速度制御パラメータ
+SPEED_KD = config["control"]["speed"]["kd"]  # 速度ゲイン
 
 # 実験パラメータ
-TARGET_POSITION = np.pi / 2  # 目標位置 [rad] (90度)
-RUNTIME_SECONDS = 15  # 実験時間 [秒]
+TARGET_VELOCITY = 1.0  # 目標速度 [rad/s]
+RUNTIME_SECONDS = 10  # 実験時間 [秒]
 
-# 安全制限パラメータ
+# 安全制限パラメータ（速度指令自体は MAX_VELOCITY でクランプ、位置/トルク/温度は SafetyMonitor で監視）
 MAX_POSITION = config["safety"]["max_position"]
-MAX_VELOCITY = config["safety"]["max_velocity"]
+MAX_VELOCITY = config["safety"]["max_velocity"]  # 出力軸側の速度上限 [rad/s]
 MAX_TORQUE = config["safety"]["max_torque"]
 EMERGENCY_STOP_ENABLED = config["safety"]["emergency_stop"]
 
-# 実行フォルダ（logs/impedance_control_{timestamp}/）を作成し、CSV・コンソールログをまとめる
-RUN_DIR = make_run_dir("impedance_control")
+# 実行フォルダ（logs/speed_control_{timestamp}/）を作成し、CSV・コンソールログをまとめる
+RUN_DIR = make_run_dir("speed_control")
 LOG_FILE = make_log_path(RUN_DIR, "log.csv")
 
 with console_log(RUN_DIR):
-    print("=== AK45-36 インピーダンス制御テンプレート ===")
+    print("=== AK45-36 速度制御テンプレート ===")
     print(f"モーター: {motor_config.type} (ID: {motor_config.id})")
-    print(f"剛性 K: {K} Nm/rad")
-    print(f"減衰 B: {B} Nm/(rad/s)")
-    print(f"目標位置: {TARGET_POSITION:.3f} rad ({np.degrees(TARGET_POSITION):.1f}°)")
+    print(f"速度ゲイン kd: {SPEED_KD}")
+    print(f"目標速度: {TARGET_VELOCITY} rad/s")
     print(f"ログ保存先: {RUN_DIR}")
-    print("=" * 50)
+    print("=" * 40)
 
     # モーター制御
     with build_motor_manager(motor_config, csv_file=LOG_FILE, log_vars=LOG_VARS) as motor:
@@ -67,34 +67,33 @@ with console_log(RUN_DIR):
         # 位置ゼロ化
         zero_position(motor)
 
-        # インピーダンス制御モード設定
-        motor.set_impedance_gains_real_unit(K=K, B=B)
+        # 速度制御モード設定
+        motor.set_speed_gains(kd=SPEED_KD)
 
         # メイン制御ループ（NeuroLocoMiddleware使用）
-        print("インピーダンス制御開始...")
+        print("速度制御開始...")
         loop = make_realtime_loop()  # 100Hz制御
 
         for t in loop:
-            # 状態更新 + 安全上限監視。上限超過時は緊急停止してループを抜ける
+            # 状態更新 + 安全上限監視（必須）。上限超過時は緊急停止してループを抜ける
             if safety_monitor.update_and_check():
                 break
 
-            # 目標位置を設定（インピーダンス制御）
-            motor.set_output_angle_radians(TARGET_POSITION)
+            # 速度指令（安全のため config.yaml の safety.max_velocity 内に収める）
+            safe_velocity = np.clip(TARGET_VELOCITY, -MAX_VELOCITY, MAX_VELOCITY)
+            motor.set_output_velocity_radians_per_second(safe_velocity)
 
-            # 制御情報表示（200msごと）
-            if loop.n % 20 == 0:
-                current_pos = motor.get_output_angle_radians()
+            # 制御情報表示（100msごと）
+            if loop.n % 10 == 0:
                 current_vel = motor.get_output_velocity_radians_per_second()
+                current_pos = motor.get_output_angle_radians()
                 current_torque = motor.get_output_torque_newton_meters()
-                error = TARGET_POSITION - current_pos
 
                 print(
                     f"経過時間: {t:.1f} 秒 | "
-                    f"位置: {current_pos:.3f} rad | "
                     f"速度: {current_vel:.3f} rad/s | "
-                    f"トルク: {current_torque:.3f} Nm | "
-                    f"誤差: {error:.3f} rad"
+                    f"位置: {current_pos:.3f} rad | "
+                    f"トルク: {current_torque:.3f} Nm"
                 )
 
             # 実験時間チェック
@@ -104,4 +103,4 @@ with console_log(RUN_DIR):
         total_time = t
         print(f"実行時間: {total_time:.2f} 秒")
     print(f"ログ保存完了: {RUN_DIR}")
-    print("インピーダンス制御実験終了")
+    print("実験終了")

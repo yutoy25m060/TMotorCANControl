@@ -1,31 +1,28 @@
-"""実験 003: 複数モーター制御
+"""ダッシュボード配信テンプレート（複数モーター版）
 
-この実験では、複数の AK45-36 モーターを同時に制御します。
-CAN バス上で複数のモーターを管理する方法を学習します。
+experiments/exp_003_multi_motor.py と同じ構成（config.yaml の motors: に設定した台数の
+モーターを同期制御し、SyncMultiMotorLogger で共通タイムラインのCSVに記録、SafetyMonitor で
+安全監視）に、DashboardServer によるリアルタイムWebダッシュボード配信を追加したものです。
+標準ライブラリのみで実装されており、追加の pip install は不要です
+（lib/dashboard_server.py 参照）。
 
-実験内容:
-1. config.yaml の motors: に設定した台数（何台でも可）のモーターを同時に制御
-2. 同期した動きを実装
-3. 各モーターの状態を個別に監視
-4. config.yaml の safety.* に基づき、位置/速度/トルクの上限監視と
-   1台でも異常なら全モーターを停止する緊急停止を実施
+同一LAN上の別端末のブラウザから http://<Piのアドレス>:8000/ で全モーターの状態
+（位置・速度・トルク・電流・温度）と、いずれかのモーターが安全上限を超えた場合の
+警告バナーをリアルタイムに閲覧できます。
 
-注意: この実験には複数のモーターが必要です。
-モーター ID を config.yaml で適切に設定してください。
+注意: この実験には複数のモーターが必要です。モーター ID を config.yaml で適切に設定してください。
 
-実行方法（config.yaml / logs/ が親ディレクトリにあるため、experiments/ に移動してから実行）:
-cd experiments
-python exp_003_multi_motor.py
+使用方法:
+1. このPiとブラウザを見る端末を同一LAN上に置く
+2. python dashboard_demo_multi_motor.py を実行
+3. コンソールに表示されるURLをブラウザで開く（他端末から見る場合はPiのIPアドレスを使用）
 """
 
-import sys
 from contextlib import ExitStack
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import numpy as np
 from lib.config_loader import load_config
+from lib.dashboard_server import DashboardServer
 from lib.logging_utils import (
     console_log,
     make_log_path,
@@ -39,7 +36,7 @@ from lib.sync_logger import SyncMultiMotorLogger
 # 設定ファイルの読み込み
 config = load_config()
 
-# 複数モーター設定
+# 複数モーター設定（config.yaml の motors: を使用。exp_003_multi_motor.py と同じフォールバック）
 MOTORS = config.get(
     "motors",
     [
@@ -79,14 +76,18 @@ EMERGENCY_STOP_ENABLED = config["safety"]["emergency_stop"]
 # 実験パラメータ
 AMPLITUDE = np.pi / 4  # 振幅 [rad] (45°)
 FREQUENCY = 0.5  # 周波数 [Hz]
-RUNTIME_SECONDS = 20  # 実験時間 [秒]
+RUNTIME_SECONDS = 120  # ブラウザで確認する時間を確保するため長めに設定
 
-# 実行フォルダ（logs/exp003_multi_motor_{timestamp}/）を作成し、CSV・コンソールログをまとめる
-RUN_DIR = make_run_dir("exp003_multi_motor")
+# ダッシュボード配信パラメータ（このスクリプト固有の設定。config.yaml には追加しない）
+DASHBOARD_HOST = "0.0.0.0"  # 同一LAN上の別端末から見えるよう全インターフェースにバインド
+DASHBOARD_PORT = 8000
+
+# 実行フォルダ（logs/dashboard_demo_multi_{timestamp}/）を作成し、CSV・コンソールログをまとめる
+RUN_DIR = make_run_dir("dashboard_demo_multi")
 SYNC_LOG_FILE = make_log_path(RUN_DIR, "sync_log.csv")
 
 with console_log(RUN_DIR):
-    print("=== 実験 003: 複数モーター制御 ===")
+    print("=== ダッシュボード配信テンプレート（複数モーター版） ===")
     print(f"制御モーター数: {len(MOTORS)}")
     for motor in MOTORS:
         print(f"  - {motor['name']}: {motor['type']} (ID: {motor['id']})")
@@ -98,13 +99,12 @@ with console_log(RUN_DIR):
     # モーター制御（動的生成、CSVは同期ロガーでまとめて記録するため個別ログは無効化）
     motor_managers = build_motor_managers(MOTORS)
 
-    # コンテキストマネージャとして使用（config.yaml の motors: に設定した台数分、動的に開閉する）
     if not motor_managers:
         print("エラー: config.yaml の motors: にモーターが1台も設定されていません。")
         exit(1)
 
-    # ExitStack が全モーターの電源オン/オフとログファイルの後始末を保証するため、
-    # 手動での __exit__ 呼び出しは不要（二重電源オフになるため行わない）
+    # ExitStack が全モーターの電源オン/オフ・ログファイル・ダッシュボードサーバーの後始末を
+    # 保証するため、手動での __exit__ 呼び出しは不要
     with ExitStack() as stack:
         motors = [stack.enter_context(m) for m in motor_managers]
         motor_names = [m["name"] for m in MOTORS]
@@ -116,9 +116,7 @@ with console_log(RUN_DIR):
         # 位置ゼロ化
         zero_positions(motors, motor_names)
 
-        # ゼロ化直後の実位置を確認する診断出力・検証。
-        # ゼロ化が反映されず前回実行時の実位置を引きずったまま制御開始してしまう事例が実機で確認
-        # されたため、ゼロ化成功を前提にせず、大きな残留誤差があれば制御開始前に安全停止する。
+        # ゼロ化直後の実位置を確認する診断出力・検証（exp_003_multi_motor.py と同じ方針）
         ZERO_TOLERANCE = 0.3  # rad（約17°）。正常時のばらつき(0.09〜0.25 rad程度)は許容する
         zero_failures = []
         for name, motor in zip(motor_names, motors):
@@ -136,37 +134,42 @@ with console_log(RUN_DIR):
             motor.set_impedance_gains_real_unit(K=K, B=B)
             print(f"  {motor_names[i]} インピーダンス制御設定完了")
 
+        dashboard = stack.enter_context(
+            DashboardServer(
+                motors,
+                motor_names,
+                LOG_VARS,
+                host=DASHBOARD_HOST,
+                port=DASHBOARD_PORT,
+                safety_monitor=safety_monitor,
+            )
+        )
+        print(f"ダッシュボード: {dashboard.url}")
+        print("同一LAN上の別端末のブラウザで上記URLを開いてください（認証はありません）")
+
         # メイン制御ループ
         print("同期制御開始...")
         loop = make_realtime_loop()  # 100Hz制御
 
         for t in loop:
+            # 状態更新 + 安全上限監視（必須）。上限超過時は緊急停止してループを抜ける
+            if safety_monitor.update_and_check():
+                break
+
             # 時間に基づく目標位置計算（正弦波軌跡）
             target_pos = AMPLITUDE * np.sin(2 * np.pi * FREQUENCY * t)
             # config.yaml の safety.max_position を超えないようにクランプ（コマンド段階の安全弁）
             target_pos = np.clip(target_pos, -MAX_POSITION, MAX_POSITION)
 
             # 全モーターに同じ目標位置を設定
-            try:
-                for motor in motors:
-                    motor.update()  # 温度上限超過時はここでRuntimeErrorが送出される
-                    motor.set_output_angle_radians(target_pos)
-            except RuntimeError as e:
-                # update()自身の温度チェックはモーター単位のため、無条件で全台を緊急停止する
-                safety_monitor.trigger_emergency_stop(str(e))
-                break
+            for motor in motors:
+                motor.set_output_angle_radians(target_pos)
 
             # 全モーターの状態を共通タイムラインで1行にまとめて記録
             sync_logger.log(t)
 
-            # 安全制限チェック（1台でも超過したら全モーターを緊急停止）
-            exceeded, message = safety_monitor.check()
-            if exceeded:
-                if safety_monitor.emergency_stop_enabled:
-                    safety_monitor.trigger_emergency_stop(message)
-                    break
-                else:
-                    print(f"警告（緊急停止は無効）: {message}")
+            # ダッシュボードへ最新状態を公開（ネットワークI/Oはこの呼び出しの中では発生しない）
+            dashboard.publish(t)
 
             # 制御情報表示（200msごと）
             if loop.n % 20 == 0:
@@ -184,4 +187,4 @@ with console_log(RUN_DIR):
         print(f"実行時間: {total_time:.2f} 秒")
 
     print(f"ログ保存完了: {RUN_DIR}")
-    print("実験 003 完了")
+    print("ダッシュボード配信テンプレート（複数モーター版）終了")

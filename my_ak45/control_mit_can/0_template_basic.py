@@ -17,6 +17,7 @@ from lib.logging_utils import (
     make_run_dir,
 )
 from lib.motor_setup import build_motor_manager, get_motor_config, zero_position
+from lib.safety_monitor import SafetyMonitor
 
 # 設定ファイルの読み込み
 config = load_config()
@@ -24,12 +25,18 @@ motor_config = get_motor_config(config)
 LOG_VARS = config["logging"]["vars"]
 RUNTIME_SECONDS = 10  # 実験時間（秒）
 
+# 安全制限パラメータ
+MAX_POSITION = config["safety"]["max_position"]
+MAX_VELOCITY = config["safety"]["max_velocity"]
+MAX_TORQUE = config["safety"]["max_torque"]
+EMERGENCY_STOP_ENABLED = config["safety"]["emergency_stop"]
+
 # 実行フォルダ（logs/basic_control_{timestamp}/）を作成し、CSV・コンソールログをまとめる
 RUN_DIR = make_run_dir("basic_control")
 LOG_FILE = make_log_path(RUN_DIR, "log.csv")
 
 with console_log(RUN_DIR):
-    print(f"=== AK45-36 基本制御テンプレート ===")
+    print("=== AK45-36 基本制御テンプレート ===")
     print(f"モーター: {motor_config.type} (ID: {motor_config.id})")
     print(f"ログ保存先: {RUN_DIR}")
     print(f"実行時間: {RUNTIME_SECONDS} 秒")
@@ -37,6 +44,16 @@ with console_log(RUN_DIR):
 
     # モーター制御
     with build_motor_manager(motor_config, csv_file=LOG_FILE, log_vars=LOG_VARS) as motor:
+        # 位置/速度/トルク/温度の上限監視（超過時は全モーター＝このモーター1台を緊急停止）
+        safety_monitor = SafetyMonitor(
+            [motor],
+            [f"{motor_config.type}(ID{motor_config.id})"],
+            MAX_POSITION,
+            MAX_VELOCITY,
+            MAX_TORQUE,
+            emergency_stop=EMERGENCY_STOP_ENABLED,
+        )
+
         # 位置ゼロ化（約 1.5 秒待機）
         zero_position(motor)
 
@@ -48,8 +65,9 @@ with console_log(RUN_DIR):
         loop = make_realtime_loop()  # 100Hz制御
 
         for t in loop:
-            # 状態更新（必須）
-            motor.update()
+            # 状態更新 + 安全上限監視（必須）。上限超過時は緊急停止してループを抜ける
+            if safety_monitor.update_and_check():
+                break
 
             # TODO: ここにあなたの制御ロジックを実装
             # 例:
