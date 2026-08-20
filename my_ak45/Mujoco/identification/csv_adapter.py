@@ -110,6 +110,7 @@ def build_sequences(
     shift=2,
     crossing_offset=0,
     run_label=None,
+    skip_time=0.0,
 ):
     """実機CSVを sysid.ModelSequences に渡せる4つのリストへ変換する。
 
@@ -130,6 +131,11 @@ def build_sequences(
             identification/identify.py の DEFAULT_SHIFT のコメントを参照。
         crossing_offset: segment_starts() に渡す（切り出し点を変えた頑健性確認用）
         run_label: シーケンス名の接頭辞。省略時はCSVの親ディレクトリ名。
+        skip_time: 先頭から無条件に捨てる時間 [秒]（既定0＝捨てない）。startup_trim_time()
+            による速度ベースの自動判定は multi-sine 励振の起動過渡（速度が飽和域近くまで
+            一気に乗る）を想定したもので、閉ループ軌道追従データの「初期位置から軌道の
+            始点への飛びつき」のように速度ピークが低い過渡は検出できない。そういうデータでは
+            呼び出し側が既知の助走時間を明示的に渡す。自動判定との併用時は遅い方を採る。
 
     Returns:
         (names, initial_states, control_ts_list, sensor_ts_list)
@@ -146,11 +152,16 @@ def build_sequences(
     vel = d["output_velocity"]
 
     # 起動過渡の切り捨て。判定は公称時刻 t で行う（sysid_run_check.py と同じ基準にするため）。
-    trim_t = startup_trim_time(t_nominal, vel)
+    trim_t = max(startup_trim_time(t_nominal, vel), skip_time)
     keep = t_nominal >= trim_t
     t_nominal, time, torque, pos, vel = (a[keep] for a in (t_nominal, time, torque, pos, vel))
 
-    n_step = int(round(seg_len / (model.opt.timestep)))
+    # 区間の行数は「CSV自身のサンプル周期」から決める。model.opt.timestep ではないことに注意:
+    # n_step はCSVの行数として使われるため、CSVのサンプリング周波数がモデルのタイムステップと
+    # 違う場合（exp_009 の軌道追従データは100Hz、モデルは1ms）に区間長が桁違いになる。
+    # 1kHzで取った exp_005 のデータでは両者は一致するので、この式は従来の結果を変えない。
+    sample_dt = float(np.median(np.diff(t_nominal)))
+    n_step = int(round(seg_len / sample_dt))
     starts = segment_starts(t_nominal, vel, seg_len, crossing_offset=crossing_offset)
 
     if run_label is None:

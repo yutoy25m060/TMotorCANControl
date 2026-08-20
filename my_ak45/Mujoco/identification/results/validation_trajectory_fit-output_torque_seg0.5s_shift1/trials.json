@@ -1,0 +1,400 @@
+{
+  "args": {
+    "stages": [
+      1,
+      2,
+      3
+    ],
+    "run": "exp009_validation_trajectory_randomized_1787187421",
+    "seg_len": 0.5,
+    "shift": 1,
+    "skip": 0.5,
+    "fit_runs": [
+      "exp005_sysid_excitation_1786575616",
+      "exp005_sysid_excitation_1786575633",
+      "exp005_sysid_excitation_1786575782"
+    ],
+    "fit_torque": "output_torque",
+    "fit_seg_len": 0.5,
+    "fit_shift": 2
+  },
+  "conditions": [
+    {
+      "trial": 0,
+      "amplitude": 0.8766700780214632,
+      "period": 2.1500645313360014,
+      "K": 9.125439775536789,
+      "B": 0.4901739595934696
+    },
+    {
+      "trial": 1,
+      "amplitude": 0.4351919370914221,
+      "period": 6.060196924537468,
+      "K": 18.382693515572683,
+      "B": 0.313020482418241
+    },
+    {
+      "trial": 2,
+      "amplitude": 0.9662337977919323,
+      "period": 2.1787833166284223,
+      "K": 8.279569622054051,
+      "B": 0.8569618745343712
+    },
+    {
+      "trial": 3,
+      "amplitude": 0.5398039545257954,
+      "period": 3.193025904119891,
+      "K": 14.748266566692848,
+      "B": 0.9084239247841817
+    },
+    {
+      "trial": 4,
+      "amplitude": 0.46670478885940625,
+      "period": 5.535594103255452,
+      "K": 17.1414568501674,
+      "B": 0.20844838758147932
+    }
+  ],
+  "rows": [
+    {
+      "stage": 0,
+      "trial": 0,
+      "params": {
+        "armature": 0.01,
+        "frictionloss": 0.0,
+        "damping": 0.0
+      },
+      "train_cost": null,
+      "n_segments": 8,
+      "n_samples": 384,
+      "rms_pos": 0.6505199516017183,
+      "rms_vel": 3.3937378745251254,
+      "max_pos": 1.5324018836832023,
+      "pos_span": 0.8072022583352414,
+      "rel_pos": 0.8058946130098028
+    },
+    {
+      "stage": 0,
+      "trial": 1,
+      "params": {
+        "armature": 0.01,
+        "frictionloss": 0.0,
+        "damping": 0.0
+      },
+      "train_cost": null,
+      "n_segments": 15,
+      "n_samples": 720,
+      "rms_pos": 0.7017699593710314,
+      "rms_vel": 3.877755508567864,
+      "max_pos": 2.149875018668225,
+      "pos_span": 0.4005493247882814,
+      "rel_pos": 1.7520188299954476
+    },
+    {
+      "stage": 0,
+      "trial": 2,
+      "params": {
+        "armature": 0.01,
+        "frictionloss": 0.0,
+        "damping": 0.0
+      },
+      "train_cost": null,
+      "n_segments": 8,
+      "n_samples": 384,
+      "rms_pos": 0.551638072990033,
+      "rms_vel": 3.065828568472431,
+      "max_pos": 1.3182471370399815,
+      "pos_span": 0.8155947203784244,
+      "rel_pos": 0.6763629768643925
+    },
+    {
+      "stage": 0,
+      "trial": 3,
+      "params": {
+        "armature": 0.01,
+        "frictionloss": 0.0,
+        "damping": 0.0
+      },
+      "train_cost": null,
+      "n_segments": 5,
+      "n_samples": 240,
+      "rms_pos": 0.4555319091917333,
+      "rms_vel": 2.713780440285419,
+      "max_pos": 1.0987777023591727,
+      "pos_span": 0.49248493171587704,
+      "rel_pos": 0.9249661864873816
+    },
+    {
+      "stage": 0,
+      "trial": 4,
+      "params": {
+        "armature": 0.01,
+        "frictionloss": 0.0,
+        "damping": 0.0
+      },
+      "train_cost": null,
+      "n_segments": 10,
+      "n_samples": 480,
+      "rms_pos": 0.609362970853951,
+      "rms_vel": 3.4437718641643946,
+      "max_pos": 1.655863838704348,
+      "pos_span": 0.44708934157320535,
+      "rel_pos": 1.3629557097240157
+    },
+    {
+      "stage": 1,
+      "trial": 0,
+      "params": {
+        "armature": 0.01565771548891713,
+        "frictionloss": 0.0,
+        "damping": 0.0
+      },
+      "train_cost": 33.04235079483655,
+      "n_segments": 8,
+      "n_samples": 384,
+      "rms_pos": 0.3521785705539282,
+      "rms_vel": 1.9296610943546675,
+      "max_pos": 0.8540329631388157,
+      "pos_span": 0.8072022583352414,
+      "rel_pos": 0.43629532365315055
+    },
+    {
+      "stage": 1,
+      "trial": 1,
+      "params": {
+        "armature": 0.01565771548891713,
+        "frictionloss": 0.0,
+        "damping": 0.0
+      },
+      "train_cost": 33.04235079483655,
+      "n_segments": 15,
+      "n_samples": 720,
+      "rms_pos": 0.4359403307161086,
+      "rms_vel": 2.433281532068041,
+      "max_pos": 1.3522939173812736,
+      "pos_span": 0.4005493247882814,
+      "rel_pos": 1.0883561742278154
+    },
+    {
+      "stage": 1,
+      "trial": 2,
+      "params": {
+        "armature": 0.01565771548891713,
+        "frictionloss": 0.0,
+        "damping": 0.0
+      },
+      "train_cost": 33.04235079483655,
+      "n_segments": 8,
+      "n_samples": 384,
+      "rms_pos": 0.2996404625123197,
+      "rms_vel": 1.7226222747426043,
+      "max_pos": 0.7413169663226666,
+      "pos_span": 0.8155947203784244,
+      "rel_pos": 0.36738891881655483
+    },
+    {
+      "stage": 1,
+      "trial": 3,
+      "params": {
+        "armature": 0.01565771548891713,
+        "frictionloss": 0.0,
+        "damping": 0.0
+      },
+      "train_cost": 33.04235079483655,
+      "n_segments": 5,
+      "n_samples": 240,
+      "rms_pos": 0.27236923198816404,
+      "rms_vel": 1.6463493578660826,
+      "max_pos": 0.6687246815644337,
+      "pos_span": 0.49248493171587704,
+      "rel_pos": 0.5530508944490884
+    },
+    {
+      "stage": 1,
+      "trial": 4,
+      "params": {
+        "armature": 0.01565771548891713,
+        "frictionloss": 0.0,
+        "damping": 0.0
+      },
+      "train_cost": 33.04235079483655,
+      "n_segments": 10,
+      "n_samples": 480,
+      "rms_pos": 0.374543176965389,
+      "rms_vel": 2.1459778743982745,
+      "max_pos": 1.0262152908828632,
+      "pos_span": 0.44708934157320535,
+      "rel_pos": 0.8377367611749748
+    },
+    {
+      "stage": 2,
+      "trial": 0,
+      "params": {
+        "armature": 0.009624378020071876,
+        "frictionloss": 0.2008630143131924,
+        "damping": 0.0
+      },
+      "train_cost": 0.93838599573551,
+      "n_segments": 8,
+      "n_samples": 384,
+      "rms_pos": 0.17862567468249027,
+      "rms_vel": 0.7443568721907875,
+      "max_pos": 0.34934790060216425,
+      "pos_span": 0.8072022583352414,
+      "rel_pos": 0.2212898599303779
+    },
+    {
+      "stage": 2,
+      "trial": 1,
+      "params": {
+        "armature": 0.009624378020071876,
+        "frictionloss": 0.2008630143131924,
+        "damping": 0.0
+      },
+      "train_cost": 0.93838599573551,
+      "n_segments": 15,
+      "n_samples": 720,
+      "rms_pos": 0.02574571984040892,
+      "rms_vel": 0.18708748703770545,
+      "max_pos": 0.11190771398832716,
+      "pos_span": 0.4005493247882814,
+      "rel_pos": 0.06427602856156941
+    },
+    {
+      "stage": 2,
+      "trial": 2,
+      "params": {
+        "armature": 0.009624378020071876,
+        "frictionloss": 0.2008630143131924,
+        "damping": 0.0
+      },
+      "train_cost": 0.93838599573551,
+      "n_segments": 8,
+      "n_samples": 384,
+      "rms_pos": 0.15422953890051874,
+      "rms_vel": 0.710426588566105,
+      "max_pos": 0.310272063929672,
+      "pos_span": 0.8155947203784244,
+      "rel_pos": 0.18910070779879304
+    },
+    {
+      "stage": 2,
+      "trial": 3,
+      "params": {
+        "armature": 0.009624378020071876,
+        "frictionloss": 0.2008630143131924,
+        "damping": 0.0
+      },
+      "train_cost": 0.93838599573551,
+      "n_segments": 5,
+      "n_samples": 240,
+      "rms_pos": 0.057382680499939935,
+      "rms_vel": 0.2807397872945107,
+      "max_pos": 0.11957502040862121,
+      "pos_span": 0.49248493171587704,
+      "rel_pos": 0.11651662173705851
+    },
+    {
+      "stage": 2,
+      "trial": 4,
+      "params": {
+        "armature": 0.009624378020071876,
+        "frictionloss": 0.2008630143131924,
+        "damping": 0.0
+      },
+      "train_cost": 0.93838599573551,
+      "n_segments": 10,
+      "n_samples": 480,
+      "rms_pos": 0.025465685194392507,
+      "rms_vel": 0.18722850602430927,
+      "max_pos": 0.06903472056963844,
+      "pos_span": 0.44708934157320535,
+      "rel_pos": 0.05695882864213352
+    },
+    {
+      "stage": 3,
+      "trial": 0,
+      "params": {
+        "armature": 0.009937222938903575,
+        "frictionloss": 0.13010669079962808,
+        "damping": 0.03179329162412966
+      },
+      "train_cost": 0.8088985021831558,
+      "n_segments": 8,
+      "n_samples": 384,
+      "rms_pos": 0.09989534196873479,
+      "rms_vel": 0.5438763099698998,
+      "max_pos": 0.2653720656008821,
+      "pos_span": 0.8072022583352414,
+      "rel_pos": 0.12375503281514232
+    },
+    {
+      "stage": 3,
+      "trial": 1,
+      "params": {
+        "armature": 0.009937222938903575,
+        "frictionloss": 0.13010669079962808,
+        "damping": 0.03179329162412966
+      },
+      "train_cost": 0.8088985021831558,
+      "n_segments": 15,
+      "n_samples": 720,
+      "rms_pos": 0.09159907360670769,
+      "rms_vel": 0.48647299303778097,
+      "max_pos": 0.3825067265613463,
+      "pos_span": 0.4005493247882814,
+      "rel_pos": 0.22868363005011744
+    },
+    {
+      "stage": 3,
+      "trial": 2,
+      "params": {
+        "armature": 0.009937222938903575,
+        "frictionloss": 0.13010669079962808,
+        "damping": 0.03179329162412966
+      },
+      "train_cost": 0.8088985021831558,
+      "n_segments": 8,
+      "n_samples": 384,
+      "rms_pos": 0.09032466957524818,
+      "rms_vel": 0.5288315211590308,
+      "max_pos": 0.22528513575630219,
+      "pos_span": 0.8155947203784244,
+      "rel_pos": 0.11074700132112039
+    },
+    {
+      "stage": 3,
+      "trial": 3,
+      "params": {
+        "armature": 0.009937222938903575,
+        "frictionloss": 0.13010669079962808,
+        "damping": 0.03179329162412966
+      },
+      "train_cost": 0.8088985021831558,
+      "n_segments": 5,
+      "n_samples": 240,
+      "rms_pos": 0.03763876175601645,
+      "rms_vel": 0.23772758299739996,
+      "max_pos": 0.1119185181494971,
+      "pos_span": 0.49248493171587704,
+      "rel_pos": 0.07642622003657748
+    },
+    {
+      "stage": 3,
+      "trial": 4,
+      "params": {
+        "armature": 0.009937222938903575,
+        "frictionloss": 0.13010669079962808,
+        "damping": 0.03179329162412966
+      },
+      "train_cost": 0.8088985021831558,
+      "n_segments": 10,
+      "n_samples": 480,
+      "rms_pos": 0.041490246298871006,
+      "rms_vel": 0.2970993032630953,
+      "max_pos": 0.14081020841850947,
+      "pos_span": 0.44708934157320535,
+      "rel_pos": 0.0928007949213826
+    }
+  ]
+}

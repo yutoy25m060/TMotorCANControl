@@ -70,8 +70,18 @@ def build_model(values):
     return spec.compile()
 
 
-def rollout_errors(model, states, controls, sensors):
+def rollout_errors(model, states, controls, sensors, common_grid=False):
     """全区間をシミュレートし、実測との差（物理単位）を1つの配列にまとめて返す。
+
+    Args:
+        common_grid: 全区間を「同じ長さの、タイムステップちょうどの格子」へ揃えるか。
+            既定の False では `TimeSeries.resample(target_dt=...)` に任せるが、これは
+            区間の実時間長 span を保ったまま ceil(span/dt)+1 点へ等分するので、
+            区間ごとに span が違うとステップ数も1つずれる。CSVのサンプル周期が
+            モデルのタイムステップと同じ（1kHzのexp_005）ならこのずれは出ないが、
+            100Hzで記録した exp_009 では区間長が 490/491 とばらつき、
+            sysid_rollout が要求する「全区間で同形状の制御配列」を満たせなくなる。
+            True にすると最短区間に合わせた `arange(n)*dt` 上へ全区間を再標本化する。
 
     Returns:
         (n_samples, 2) の配列。列は [位置誤差 rad, 速度誤差 rad/s]。
@@ -79,7 +89,12 @@ def rollout_errors(model, states, controls, sensors):
     # 制御信号はモデルのタイムステップへ揃える（model_residual と同じ前処理）。
     # 実機の wall_time は 1ms ちょうどではないため、これをしないと区間ごとに
     # ステップ数が変わってしまう。
-    controls = [c.resample(target_dt=model.opt.timestep) for c in controls]
+    dt = model.opt.timestep
+    if common_grid:
+        n = min(int(np.floor((np.asarray(c.times)[-1] - np.asarray(c.times)[0]) / dt)) + 1 for c in controls)
+        controls = [c.resample(new_times=np.asarray(c.times)[0] + np.arange(n) * dt) for c in controls]
+    else:
+        controls = [c.resample(target_dt=dt) for c in controls]
     data = mujoco.MjData(model)
     trajs = sysid.sysid_rollout(model, data, controls, np.array(states))
 
