@@ -1,6 +1,6 @@
 """wire_statics.py のフェーズC検証テスト。
 
-`my_ak45/docs_mechanism/ワイヤー駆動関節の運動学と定滑車配置の検討.md`
+`my_ak45/wire_drive/docs_mechanism/ワイヤー駆動関節の運動学と定滑車配置の検討.md`
 第3部フェーズCの検証内容、および符号規約の較正結果をまとめる。実機・CANバスに非依存。
 """
 
