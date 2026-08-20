@@ -78,6 +78,19 @@ experiment:
     period: 4.0      # 周期 [秒]
     duration: 20.0   # 持続時間 [秒]
 
+  # 軌跡追従（振幅・周期・K・Bをランダム化し、複数試行を1回の実行で連続取得）
+  # sysid validation用の別軌道データ（AK45-36_sysid_作業手順.md フェーズ4 項目19）を
+  # 複数条件でまとめて取得するために使う。exp_009_validation_trajectory_randomized.py 参照。
+  trajectory_randomized:
+    n_trials: 5              # 試行回数
+    duration_per_trial: 10.0 # 1試行あたりの実行時間 [秒]
+    amplitude_range: [0.5, 2.0]  # 振幅のサンプリング範囲 [rad]
+    period_range: [2.0, 8.0]     # 周期のサンプリング範囲 [秒]
+    K_range: [5.0, 20.0]         # 剛性ゲインのサンプリング範囲 [Nm/rad]
+    B_range: [0.2, 1.5]          # 減衰ゲインのサンプリング範囲 [Nm/(rad/s)]
+    rest_time: 2.0                # 試行間の静定時間 [秒]（ゼロ化後の待ち時間）
+    seed: 42                      # 乱数シード（再現性のため固定）
+
   # システム同定用 multi-sine 励振信号（純トルク指令、kp=0/kd=0）
   # 参照: my_ak45/Mujoco/docs_syid/Mujoco_システム識別（SysID_モータ実機MuJoCo）について.md セクション2-3
   sysid_excitation:
