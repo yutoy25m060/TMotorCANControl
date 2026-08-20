@@ -1,6 +1,6 @@
 """wire_kinematics.py のフェーズB検証テスト。
 
-`my_ak45/docs_mechanism/ワイヤー駆動関節の運動学と定滑車配置の検討.md` B-2節の
+`my_ak45/wire_drive/docs_mechanism/ワイヤー駆動関節の運動学と定滑車配置の検討.md` B-2節の
 検証ケース、および回帰・整合性テストをまとめる。実機・CANバスに非依存。
 """
 

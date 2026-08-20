@@ -274,7 +274,7 @@ Windows PC（Piをリモート操作している側の母艦）で行う。こ�
   sysid作業の都合で狭めないため（PiのPythonバージョンはこのリポジトリからは確認できない）
 - ~~フェーズ2のXMLモデルをどこまで詳細化するか~~ → 2026-08-13時点では単一ヒンジ関節のみ
   （`my_ak45/Mujoco/models/ak45_36_joint.xml`）。将来的な脚機構を見据えた詳細化は
-  `my_ak45/docs_mechanism/`・`quadruped_prep_ja.md` の計画次第で別途検討
+  `my_ak45/wire_drive/docs_mechanism/`・`quadruped_prep_ja.md` の計画次第で別途検討
 - ~~**`frictionloss` と `damping` は部分的に識別不能**（ステージ3で `damping` を足すと
   `frictionloss` が 0.160→0.098 に大きく動く）。どちらの値を採るかはフェーズ4のvalidationで
   別軌道に対する再現性を見て決める必要がある~~ → **2026-08-13に決着（項目17/18）**:

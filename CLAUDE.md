@@ -63,8 +63,12 @@ environment management. Everything is hardware-in-the-loop: there is no simulato
   sysid work plan and reference material, including a phase-3 note that the 10s captures likely need to be split
   into ~0.5–1s sub-sequences before fitting, since open-loop trajectory divergence between two nominally-identical
   runs grows large over a full 10s span. Not wired into the main package.
-- `my_ak45/wire_mechanism/` — a from-scratch physics module (not just docs) modeling a planned wire/tendon-driven
-  quadruped joint, developed in phases per `my_ak45/docs_mechanism/ワイヤー駆動関節の運動学と定滑車配置の検討.md`:
+- `my_ak45/wire_drive/` — the wire-driven quadruped joint workspace: implementation and design docs
+  live side by side here (`wire_mechanism/` and `docs_mechanism/` below, merged from separate
+  top-level `my_ak45/` folders into one since they're two views of the same topic).
+- `my_ak45/wire_drive/wire_mechanism/` — a from-scratch physics module (not just docs) modeling a planned
+  wire/tendon-driven quadruped joint, developed in phases per
+  `my_ak45/wire_drive/docs_mechanism/ワイヤー駆動関節の運動学と定滑車配置の検討.md`:
   Phase A (coordinate/sign conventions) is decided; Phase B (`wire_kinematics.py` — pure-function geometry:
   `pulley_polar_from_xy`, `anchor_angle`, `included_angle`, `wire_length`, `moment_arm`, `solve_wire_geometry`)
   and Phase C (`wire_statics.py` — quasi-static `gravity_torque()` / `solve_wire_tension()`) are implemented and
@@ -91,9 +95,10 @@ environment management. Everything is hardware-in-the-loop: there is no simulato
   four undecided quantities (swing spec, `r_drum`, link inertia, `T_min`) — change them there, not at each call
   site. `plotting.py` renders Phase B/C curves and both Phase D heatmaps via matplotlib (dev-only dependency).
   Tests run via `uv run pytest` (see Environment & commands below).
-- `my_ak45/docs_mechanism/`, `my_ak45/quadruped_prep_ja.md` — Japanese-language design/planning notes for the
-  wire-driven quadruped described above; `docs_mechanism/` now tracks an implementation (`wire_mechanism/`) as
-  design decisions land, `quadruped_prep_ja.md` remains advisory-only.
+- `my_ak45/wire_drive/docs_mechanism/`, `my_ak45/quadruped_prep_ja.md` — Japanese-language design/planning notes
+  for the wire-driven quadruped described above; `docs_mechanism/` now tracks an implementation
+  (`wire_mechanism/`, its sibling under `wire_drive/`) as design decisions land. `quadruped_prep_ja.md` stays at
+  `my_ak45/` (not moved into `wire_drive/`) and remains advisory-only.
 - `my_ak45/control_mit_can/docs/`, `my_ak45/control_mit_can/docs_mit_can/` — Notion-exported personal notes on
   real-hardware bring-up (Raspberry Pi 5 + Waveshare 2-CH CAN HAT wiring/setup) and MIT-control theory/API usage.
   **Not authoritative for AK45-36 numeric specs**: the velocity/torque limits quoted in these docs disagree with
@@ -177,11 +182,12 @@ required). "Testing" a change to `src/TMotorCANControl/` means:
    Since CI/sandboxed environments have no CAN bus or serial device attached, hardware verification usually can't
    be done here — say so explicitly rather than claiming a control-mode change was "tested."
 
-The one exception is `my_ak45/wire_mechanism/` (pure math, no hardware): it has a real `pytest` suite under
-`my_ak45/wire_mechanism/tests/`, wired up via `[tool.pytest.ini_options]` (`pythonpath = ["my_ak45"]`,
-`testpaths = ["my_ak45/wire_mechanism/tests"]`) so tests import as `from wire_mechanism import wire_kinematics`.
-Run it with `uv run pytest -v` before changing anything under `wire_mechanism/`; note the deliberate
-`xfail(strict=True)` covering the known `pulley_polar_from_xy` sign bug mentioned above.
+The one exception is `my_ak45/wire_drive/wire_mechanism/` (pure math, no hardware): it has a real `pytest` suite
+under `my_ak45/wire_drive/wire_mechanism/tests/`, wired up via `[tool.pytest.ini_options]`
+(`pythonpath = ["my_ak45/wire_drive"]`, `testpaths = ["my_ak45/wire_drive/wire_mechanism/tests"]`) so tests
+import as `from wire_mechanism import wire_kinematics`. Run it with `uv run pytest -v` before changing anything
+under `wire_mechanism/`. The `pulley_polar_from_xy` sign-convention doubt once tracked here via an
+`xfail(strict=True)` is resolved (see the note above) — the xfail was replaced with a passing regression test.
 
 ## Architecture
 

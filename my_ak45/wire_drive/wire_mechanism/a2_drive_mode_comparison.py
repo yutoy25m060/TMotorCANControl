@@ -1,6 +1,6 @@
 """フェーズA-2（駆動方式の決定）の定量比較スクリプト。
 
-`my_ak45/docs_mechanism/ワイヤー駆動関節の運動学と定滑車配置の検討.md` A-2節に
+`my_ak45/wire_drive/docs_mechanism/ワイヤー駆動関節の運動学と定滑車配置の検討.md` A-2節に
 記載した数値を再現する。`python -m wire_mechanism.a2_drive_mode_comparison`
 （`my_ak45/` をカレントまたは PYTHONPATH に置いて）で実行する。
 
