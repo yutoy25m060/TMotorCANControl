@@ -343,6 +343,18 @@ with DashboardServer(
         dashboard.publish(t)  # 制御ループの周期に関わらず、ブラウザへは10Hz固定で配信される
 ```
 
+**表示機能:**
+- **経過時間表示**: `publish(t)` に渡された `t`（制御ループの経過時間）を `MM:SS`
+  （1時間以上は `HH:MM:SS`）形式でページ上部に表示します。
+- **温度警告色表示**: `mosfet_temperature` の値が各モーターの `max_temp`（`TMotorManager_mit_can`
+  が `update()` で `RuntimeError` を投げる基準そのもの）の75%以上で橙色、90%以上で赤色に
+  数値表示の文字色が変わります。新規のコンストラクタ引数は不要です（`motor.max_temp` を
+  そのまま利用）。あくまで「上限に近づいている」ことを早期に伝える視覚的な警告であり、
+  実際の緊急停止は `SafetyMonitor` の責務のまま変わりません。
+- **グラフ表示変数の切り替え**: 各モーターカードのグラフ上部にドロップダウンがあり、
+  `log_vars` の中から折れ線グラフに表示する変数を実行中に切り替えられます（既定は
+  `log_vars[0]`）。切り替えると単位が変わるため、グラフの履歴はリセットされます。
+
 **テンプレート:**
 - `dashboard_demo.py`: インピーダンス制御 + ダッシュボード配信（単一モーター、SafetyMonitor連携あり）の最小例
 - `dashboard_demo_multi_motor.py`: `experiments/exp_003_multi_motor.py` 相当の複数モーター構成
