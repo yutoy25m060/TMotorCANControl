@@ -71,7 +71,7 @@ DEFAULT_BASE_FREQ = 4.0
 DEFAULT_HARMONIC_RATIOS = (1.0, 3.4, 7.4)
 
 
-class _Report:
+class RunCheckReport:
     """PASS/WARN/FAIL を集計しながら整形出力するヘルパー。"""
 
     def __init__(self):
@@ -139,38 +139,17 @@ def _frequency_response(t, cmd, tau, base_freq, ratios):
     return {"K": K, "T": T, "L": L, "harmonics": meas}
 
 
-def check_run(csv_path, base_freq=DEFAULT_BASE_FREQ, harmonic_ratios=DEFAULT_HARMONIC_RATIOS,
-              expected_samples=None, max_temp=None, target_usable_duration=None):
-    """励振データCSVを検証し、レポートを標準出力に印字する。
+def report_sampling(rep, d, expected_samples=None):
+    """取得の完全性（項目1）と wall_time による実ジッタを判定する。
 
-    Args:
-        csv_path: exp_005_sysid_excitation.py が出力した log.csv のパス
-        base_freq: 励振の基準周波数 [Hz]
-        harmonic_ratios: 励振の高調波比
-        expected_samples: 期待サンプル数（None なら完全性チェックを省略）
-        max_temp: モーターの温度上限 [℃]（None なら温度余裕チェックを省略）
-        target_usable_duration: 起動過渡を切り捨てた後に確保したい記録時間 [秒]
-            （None なら達成判定を省略。config.yaml の duration は起動過渡分の余裕を
-            上乗せした値のため、切り捨て後もこの値以上が残っているかを別途確認する）
+    exp_005（開ループ励振・1kHz）と exp_009（閉ループ軌道追従・100Hz）で共通の、
+    「記録そのものが健全か」を見る部分。制御則にも励振波形にも依存しないため、
+    validation_run_check.py からも同じ判定・同じ文言で呼べるよう切り出してある。
 
     Returns:
-        bool: FAIL が1件もなければ True
+        float: 公称サンプル周期 dt の中央値 [秒]（呼び出し側が以降の判定で使う）
     """
-    d = np.genfromtxt(csv_path, delimiter=",", names=True)
     t = d["t"]
-    cmd = d["desired_torque"]
-    pos = d["output_angle"]
-    vel = d["output_velocity"]
-    cur = d["current"]
-    tau = d["output_torque"]
-    temp = d["mosfet_temperature"]
-
-    rep = _Report()
-    print("=" * 70)
-    print("sysid励振データ 自動検証")
-    print(f"  対象: {csv_path}")
-    print("=" * 70)
-
     # --- 1. 取得の完全性 ---
     dt_med = float(np.median(np.diff(t)))
     if expected_samples is not None:
@@ -224,12 +203,48 @@ def check_run(csv_path, base_freq=DEFAULT_BASE_FREQ, harmonic_ratios=DEFAULT_HAR
                 "   (対処)",
                 "INFO",
                 "sysid整形時は t（公称時刻）ではなく wall_time を TimeSeries の時刻軸に使うこと。"
-                "指令トルクは公称tで計算され実際には wall_time の時点で印加されるため、"
+                "指令（トルク／目標位置）は公称tで計算され実際には wall_time の時点で印加されるため、"
                 "wall_time を使えばこのずれは補正される",
             )
     else:
         rep.item("   (注)", "INFO", "wall_time列がないため実ジッタは評価不可（t列は公称時刻）")
 
+    return dt_med
+
+
+def check_run(csv_path, base_freq=DEFAULT_BASE_FREQ, harmonic_ratios=DEFAULT_HARMONIC_RATIOS,
+              expected_samples=None, max_temp=None, target_usable_duration=None):
+    """励振データCSVを検証し、レポートを標準出力に印字する。
+
+    Args:
+        csv_path: exp_005_sysid_excitation.py が出力した log.csv のパス
+        base_freq: 励振の基準周波数 [Hz]
+        harmonic_ratios: 励振の高調波比
+        expected_samples: 期待サンプル数（None なら完全性チェックを省略）
+        max_temp: モーターの温度上限 [℃]（None なら温度余裕チェックを省略）
+        target_usable_duration: 起動過渡を切り捨てた後に確保したい記録時間 [秒]
+            （None なら達成判定を省略。config.yaml の duration は起動過渡分の余裕を
+            上乗せした値のため、切り捨て後もこの値以上が残っているかを別途確認する）
+
+    Returns:
+        bool: FAIL が1件もなければ True
+    """
+    d = np.genfromtxt(csv_path, delimiter=",", names=True)
+    t = d["t"]
+    cmd = d["desired_torque"]
+    pos = d["output_angle"]
+    vel = d["output_velocity"]
+    cur = d["current"]
+    tau = d["output_torque"]
+    temp = d["mosfet_temperature"]
+
+    rep = RunCheckReport()
+    print("=" * 70)
+    print("sysid励振データ 自動検証")
+    print(f"  対象: {csv_path}")
+    print("=" * 70)
+
+    dt_med = report_sampling(rep, d, expected_samples)
     # --- 9. 起動過渡（先に判定して、以降の速度評価から除外する区間を決める） ---
     high = np.abs(vel) > VEL_PEAK_WARN
     trim_t = 0.0

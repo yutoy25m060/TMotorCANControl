@@ -114,17 +114,22 @@ Windows PC で行います。**受け渡しは git リポジトリ経由**です
 my_ak45/Mujoco/
 ├── README.md                    ← いまこれ
 ├── data_collection/             【Piで動かす】実機データ取得
-│   ├── exp_005_sysid_excitation.py   励振信号を送ってCSVに記録する本体
-│   └── sysid_run_check.py            取得データの品質を11項目で自動判定
+│   ├── exp_005_sysid_excitation.py   励振信号を送ってCSVに記録する本体（同定用）
+│   ├── exp_008_validation_trajectory.py         別軌道の取得（単発）
+│   ├── exp_009_validation_trajectory_randomized.py  別軌道の取得（条件ランダム・複数試行）
+│   ├── sysid_run_check.py            同定用データの品質を11項目で自動判定
+│   └── validation_run_check.py       別軌道データの品質を9項目+実行全体で自動判定
 ├── data/raw/                    【git追跡】取得された生ログ（CSV + console.log）
-│   └── exp005_sysid_excitation_<timestamp>/
+│   ├── exp005_sysid_excitation_<timestamp>/
+│   └── exp009_validation_trajectory_randomized_<timestamp>/
 ├── models/                      MuJoCoモデル（XML）
 │   ├── ak45_36_joint.xml             ベースライン（同定前。書き換え禁止）
 │   └── ak45_36_joint_identified.xml  ★成果物：同定値を焼き込んだモデル
 ├── identification/              【PCで動かす】同定と検証
 │   ├── csv_adapter.py                実機CSV → mujoco.sysid 形式への変換
 │   ├── identify.py                   パラメータ最適化の本体
-│   ├── validate.py                   交差検証
+│   ├── validate.py                   交差検証（同定と同じ multi-sine 励振の別ラン）
+│   ├── validate_trajectory.py        別軌道での検証（exp_009 インピーダンス追従）
 │   └── results/                      同定結果（params.yaml / summary.txt）
 └── docs_syid/                   作業手順書・参考資料
     └── AK45-36_sysid_作業手順.md      ★作業チェックリスト（進捗の真実はここ）
@@ -139,7 +144,7 @@ my_ak45/Mujoco/
 | **1** | 実機データ取得 | Pi | ✅ 採用3ラン取得済み |
 | **2** | MuJoCo最小モデル作成 | PC | ✅ 完了 |
 | **3** | パラメータ同定（最適化） | PC | ✅ 完了 |
-| **4** | validation（交差検証） | PC | 🔶 一部完了（別軌道での検証が未了） |
+| **4** | validation（交差検証＋別軌道検証） | PC | ✅ 完了 |
 | **5** | 結果をモデルに反映 | PC | ✅ 完了 |
 
 以下、各フェーズで「何をして、なぜそうしたか」を説明します。
@@ -411,11 +416,67 @@ CSV を静的に扱う限り正しい補正量は **約3行**です。それで�
 単独では ±10% 程度動きますが、**組としては汎化性能を改善している**ので実用上の問題は
 ありません。
 
-#### 🔶 まだ終わっていない部分
+#### 別の軌道でも通用するか（`validate_trajectory.py`）
 
-ここで使った検証ランは、**同定ランと同じ multi-sine 励振**です。
-「sysid に使ったのとは**別の軌道**（PD制御での位置追従など）」での検証はまだできていません。
-これには **Pi での追加データ取得が必要**で、これがフェーズ4の残タスクです。
+上の交差検証は、**同定ランと同じ multi-sine 励振**の別ランで評価しています。これでは
+「同じ実験を繰り返したときの再現性」しか測れず、励振信号に含まれる周波数・速度域に
+特化した解になっていても気づけません。
+
+そこで、**制御則も軌道もサンプリング周波数も違うデータ**で評価し直したのが
+[`identification/validate_trajectory.py`](identification/validate_trajectory.py) です。
+検証データは exp_009（インピーダンス制御による三角波追従、振幅・周期・K・B をランダム化
+した5試行、100Hz記録）で、同定側は exp_005 の3ラン全部を使います。
+
+##### 取得側の自動品質チェック（`validation_run_check.py`）
+
+exp_008/exp_009 も実験の最後に自動チェックが走ります（Pi側）。`sysid_run_check.py` とは
+別スクリプトで、**判定項目が違います**。指令トルクが存在しない閉ループデータなので、
+`sysid_run_check.py` の11項目のうち4項目（トルク線形性・符号反転・指令-実測の遅れ・
+周波数応答）は原理的に移植できず、代わりに検証データ特有の項目が入ります。
+
+| # | 項目 | 何を見ているか |
+|---|---|---|
+| 1 | 取得の完全性・実ジッタ | サンプル数と `wall_time` の揺らぎ（`sysid_run_check.py` と共通実装） |
+| 2 | 飛びつき過渡 | ゼロ位置から三角波の始点へ飛びつく過渡が、PC側の切り捨て幅0.5秒に収まっているか |
+| 3 | 追従品質 | 追従誤差RMSが振幅に対して小さいか（＝三角波を実際に辿れたか） |
+| 4 | 検証区間数 | `validate_trajectory.py` が速度ゼロ交差から何区間切り出せるか |
+| 5 | 双方向カバレッジ | 正転・逆転のサンプル数が均衡しているか |
+| 6 | 速度飽和 | 無負荷速度に近づいていないか |
+| 7 | トルク・電流の余裕 | `safety.max_torque` / 定格電流に対する余裕 |
+| 8 | 速度デコード健全性 | 速度の値が位置の微分と整合しているか |
+| 9 | 温度余裕 | 上限75℃に対する余裕 |
+| 10 | 試行数・周期の広がり | （実行全体）速い試行と遅い試行の両方が揃っているか |
+
+実データ（5試行）に掛けると**条件付き合格（WARN 5件）**で、内訳は単発ジッタスパイク3件と
+**飛びつき中の速度が `safety.max_velocity` の83〜85%に達していた**2件です。後者は
+`sysid_run_check.py` 側には無い観点で、記録全体の速度・トルクのピークは追従区間ではなく
+この飛びつき区間に出ます（トルクで追従区間0.33 Nm に対し飛びつき込み3.10 Nm）。
+**あと少しで緊急停止に掛かり、以降の試行が全部中止になるところでした。**
+振幅・K を上げる方向に条件を振るときはこの項目を必ず見てください。
+
+```bash
+# 過去データを個別にチェックしたい場合
+python validation_run_check.py ../data/raw/exp009_validation_trajectory_randomized_XXXX
+```
+
+| ステージ | 位置RMS [mrad] | 速度RMS [rad/s] | 位置最大 [mrad] | 位置RMS/振れ幅 |
+|---|---|---|---|---|
+| 同定前（XML初期値） | 593.8 | 3.2990 | 1551.0 | 110.4% |
+| 1: armature | 343.7 | 1.9583 | 920.4 | 65.1% |
+| 2: +frictionloss | 83.2 | 0.4189 | 222.6 | 12.9% |
+| **3: +damping** | **63.3** | 0.3341 | 217.5 | 13.8% |
+
+→ **ステージ3を採用するという結論は、別軌道でも覆りませんでした**（同定前比9.4倍改善）。
+
+> **絶対値をフェーズ4の交差検証（11.58 mrad）と直接比べないでください。** 検証データの
+> サンプリング周波数（100Hz）・区間の切り出し方・入力に使うトルク列（閉ループなので
+> `output_torque` 一択）が違います。ここで読むべきは**改善倍率とステージ間の順位**です。
+
+> **⚠️ 平均は割れています。** 試行ごとに見ると、速い試行（周期2秒台）はステージ3が圧勝、
+> 遅い試行（周期5〜6秒台）はステージ2の方が良い、と分かれます。ステージ3は摩擦の一部を
+> クーロン（`frictionloss` 0.160→0.098）から粘性（`damping` 0→0.027）へ移す解なので、
+> 粘性項がほとんど効かない低速域ではクーロン摩擦を過小評価します。
+> **低速域を主に扱う用途では、平均値だけでステージ3を選ばないこと。**
 
 ---
 
@@ -451,10 +512,12 @@ uv sync --group mujoco-sysid     # mujoco 3.11.0 が入る
 
 ```bash
 cd my_ak45/Mujoco/data_collection
-python exp_005_sysid_excitation.py         # 目視監視のもとで実行すること
+python exp_005_sysid_excitation.py         # 同定用データ。目視監視のもとで実行すること
+python exp_009_validation_trajectory_randomized.py   # 別軌道の検証用データ（5試行）
 
 # 過去データを個別にチェックしたい場合
 python sysid_run_check.py ../data/raw/exp005_sysid_excitation_XXXX/log.csv
+python validation_run_check.py ../data/raw/exp009_validation_trajectory_randomized_XXXX
 ```
 
 ### 同定（PC側）
@@ -469,7 +532,14 @@ uv run python identify.py --torque output_torque    # 実測トルク入力で�
 
 uv run python validate.py                       # 交差検証（ステージ1〜3）
 uv run python validate.py --stages 2 3
+
+uv run python validate_trajectory.py            # 別軌道（exp_009）での検証
+uv run python validate_trajectory.py --fit-torque output_torque   # 同定側も実測トルクに揃える
 ```
+
+> `mujoco` は既定の依存グループに入っていないため、上のコマンドが
+> `ModuleNotFoundError: No module named 'mujoco'` になる場合は
+> `uv run --group mujoco-sysid python ...` として実行してください。
 
 ---
 
