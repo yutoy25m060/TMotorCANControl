@@ -25,6 +25,10 @@ CLAUDE.md の方針（「ヘッドレスRaspberry Pi/Linux向けの構成のた�
   update() してしまうと、CAN送信のタイミング・状態遷移を余計に乱すおそれがあるため。
   ダッシュボードは安全状態を表示するだけで、緊急停止の実行はあくまで制御ループ側
   （safety_monitor.update_and_check()）の責務のまま変えない。
+- 温度警告色表示は motor.max_temp（TMotorManager_mit_can.__init__ の max_mosfett_temp。
+  update() が RuntimeError を投げる基準そのもの）をそのまま使う。実行中に変化しない値のため
+  __init__ で一度だけ読み、publish() のたびに読み直すことはしない。新規のコンストラクタ引数は
+  増やしていない。
 """
 
 import json
@@ -64,6 +68,11 @@ class DashboardServer:
         self._push_interval = push_interval
         self._safety_monitor = safety_monitor
 
+        # motor.max_temp（TMotorManager_mit_can.__init__ の max_mosfett_temp、update() が
+        # RuntimeError を投げる基準そのもの）は実行中に変化しない静的な値のため、publish() の
+        # たびに読み直す必要はなくここで一度だけ計算する。
+        self._max_temps = {name: motor.max_temp for name, motor in zip(motor_names, motors)}
+
         self._lock = threading.Lock()
         self._state = {
             "t": None,
@@ -71,6 +80,7 @@ class DashboardServer:
             "motors": {name: {} for name in motor_names},
             "safety_ok": None,
             "safety_message": None,
+            "max_temps": self._max_temps,
         }
         self._stop_event = threading.Event()
 
@@ -120,6 +130,7 @@ class DashboardServer:
                 "motors": self._state["motors"],
                 "safety_ok": self._state["safety_ok"],
                 "safety_message": self._state["safety_message"],
+                "max_temps": self._state["max_temps"],
             }
         payload["age_seconds"] = round(time.time() - updated_at, 2) if updated_at is not None else None
         return payload
@@ -217,6 +228,7 @@ _DASHBOARD_HTML = """<!doctype html>
     padding: 1.5rem;
   }
   h1 { font-size: 1.3rem; margin: 0 0 0.75rem; }
+  #elapsed-time { margin-bottom: 0.25rem; color: #555; font-size: 0.9rem; font-family: monospace; }
   #freshness { margin-bottom: 0.5rem; color: #555; font-size: 0.9rem; }
   #freshness.stale { color: #b91c1c; font-weight: bold; }
   #safety-banner {
@@ -229,6 +241,9 @@ _DASHBOARD_HTML = """<!doctype html>
   }
   #safety-banner.ok { color: #15803d; background: #dcfce7; }
   #safety-banner.exceeded { color: #b91c1c; background: #fee2e2; }
+  .row-value.temp-warning { color: #b45309; }
+  .row-value.temp-critical { color: #b91c1c; }
+  .plot-select { font-size: 0.8rem; margin-top: 0.5rem; }
   #motors { display: flex; flex-wrap: wrap; gap: 1rem; }
   .motor-card {
     background: #fff;
@@ -251,6 +266,7 @@ _DASHBOARD_HTML = """<!doctype html>
 </head>
 <body>
 <h1>TMotorCANControl ダッシュボード</h1>
+<div id="elapsed-time">経過時間: --:--</div>
 <div id="freshness">データ待機中...</div>
 <div id="safety-banner" hidden></div>
 <div id="motors"></div>
@@ -276,6 +292,16 @@ function labelFor(varName) {
   return LABELS[varName] || [varName, ""];
 }
 
+function formatElapsed(t) {
+  if (typeof t !== "number") return "--:--";
+  const totalSeconds = Math.floor(t);
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  const pad = function (n) { return String(n).padStart(2, "0"); };
+  return h > 0 ? (pad(h) + ":" + pad(m) + ":" + pad(s)) : (pad(m) + ":" + pad(s));
+}
+
 function buildCards(motors) {
   const container = document.getElementById("motors");
   container.innerHTML = "";
@@ -298,12 +324,30 @@ function buildCards(motors) {
     let html = "<h2>" + name + "</h2>";
     html += '<div class="stale-badge" id="stale-' + name + '" hidden>\\u26a0 データが更新されていません</div>';
     html += rows;
-    if (plotVar) {
+    if (vars.length > 0) {
+      html += '<select class="plot-select" id="plotvar-' + name + '">';
+      for (const v of vars) {
+        const selected = v === plotVar ? " selected" : "";
+        html += '<option value="' + v + '"' + selected + '>' + labelFor(v)[0] + '</option>';
+      }
+      html += '</select>';
       html += '<canvas id="chart-' + name + '" width="320" height="110"></canvas>';
-      html += '<div class="chart-caption">' + labelFor(plotVar)[0] + ' の推移</div>';
+      html += '<div class="chart-caption" id="caption-' + name + '">' + labelFor(plotVar)[0] + ' の推移</div>';
     }
     card.innerHTML = html;
     container.appendChild(card);
+
+    if (vars.length > 0) {
+      const select = card.querySelector("#plotvar-" + name);
+      select.addEventListener("change", function () {
+        // 変数が変わると単位・レンジが変わるため、異なる単位のデータが1本の折れ線に
+        // 混在しないよう履歴をリセットしてから描画し直す。
+        motorState[name].plotVar = select.value;
+        motorState[name].history = [];
+        document.getElementById("caption-" + name).textContent = labelFor(select.value)[0] + " の推移";
+        drawChart(name);
+      });
+    }
   }
   builtCards = true;
 }
@@ -361,13 +405,20 @@ function drawChart(name) {
   ctx.stroke();
 }
 
+// 温度が上限に近づいていることを示す視覚的な警告のしきい値（安全上限そのものではなく、
+// あくまで「近づいている」ことを早期に伝えるための表示用ハードコード定数）
+const TEMP_WARNING_RATIO = 0.75;
+const TEMP_CRITICAL_RATIO = 0.9;
+
 function handleMessage(payload) {
   lastMessageAt = performance.now();
   if (!builtCards) buildCards(payload.motors);
 
+  document.getElementById("elapsed-time").textContent = "経過時間: " + formatElapsed(payload.t);
   updateFreshnessBanner(payload.age_seconds);
   updateSafetyBanner(payload.safety_ok, payload.safety_message);
   const stale = payload.age_seconds !== null && payload.age_seconds !== undefined && payload.age_seconds > 1.0;
+  const maxTemps = payload.max_temps || {};
 
   for (const name of Object.keys(payload.motors)) {
     const vars = payload.motors[name];
@@ -376,6 +427,13 @@ function handleMessage(payload) {
       if (el) {
         const value = vars[v];
         el.textContent = typeof value === "number" ? value.toFixed(3) : String(value);
+        let cls = "row-value";
+        if (v === "mosfet_temperature" && typeof value === "number" && maxTemps[name]) {
+          const ratio = value / maxTemps[name];
+          if (ratio >= TEMP_CRITICAL_RATIO) cls += " temp-critical";
+          else if (ratio >= TEMP_WARNING_RATIO) cls += " temp-warning";
+        }
+        el.className = cls;
       }
     }
     const state = motorState[name];
