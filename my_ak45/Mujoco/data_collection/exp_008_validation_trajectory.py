@@ -43,6 +43,9 @@ from lib.logging_utils import console_log, make_realtime_loop
 from lib.motor_setup import build_motor_manager, get_motor_config, zero_position
 from lib.safety_monitor import SafetyMonitor
 
+# 同一ディレクトリのモジュール（control_mit_can/lib ではなくこちら側の資産）
+from validation_run_check import check_validation_run
+
 # 設定ファイルの読み込み
 config = load_config()
 motor_config = get_motor_config(config)
@@ -163,6 +166,26 @@ with console_log(RUN_DIR):
             del loop  # report=True のタイミングレポートを console.log に残す（exp_005と同じ理由）
 
     print(f"ログ保存完了: {RUN_DIR}")
+
+    # 取得直後の自動検証（exp_005 と同じ方針）。モーターの電源を落とした後に走るので
+    # 制御ループのリアルタイム性には影響せず、結果は console_log により console.log にも残る。
+    # 「別軌道データとして使えるか」はCSVを解析しないと分からない項目（追従品質・
+    # PC側が切り出せる区間数・飛びつき時の安全余裕）を含むため、その場で判定する。
+    print()
+    try:
+        check_validation_run(
+            RUN_DIR,
+            expected_samples=int(DURATION / 0.01),  # make_realtime_loop() の既定 dt=0.01
+            max_temp=motor_config.max_temp,
+            max_torque=MAX_TORQUE,
+            max_velocity=MAX_VELOCITY,
+        )
+    except Exception as e:
+        # 検証はあくまで事後の付随処理であり、ここで失敗しても取得済みデータは有効。
+        # 実験そのものを失敗扱いにしないよう、例外は握りつぶして通知だけ行う。
+        print(f"（自動検証の実行に失敗しました: {type(e).__name__}: {e}）")
+        print("（取得データ自体は保存済みです。validation_run_check.py を単体で実行して確認してください）")
+
     print("実験 008 完了")
     print()
     print("次のステップ: このCSVをコミットしてWindows PC側でgit pullし、")
